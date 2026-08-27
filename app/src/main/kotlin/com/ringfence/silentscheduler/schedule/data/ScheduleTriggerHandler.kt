@@ -31,9 +31,23 @@ class ScheduleTriggerHandler @Inject constructor(
     private val alarmScheduler: ScheduleAlarmScheduler,
     private val preferencesDataStore: DataStore<Preferences>
 ) {
+    /**
+     * Idempotent: if this schedule already has a stored previous-mode snapshot, it's
+     * already mid-silence, so this is a no-op. That matters because
+     * [SchedulingScheduleRepository] calls this synchronously when re-enabling a
+     * schedule whose window is already active (so the toggle feels instant instead
+     * of waiting on AlarmManager's async delivery) — the real alarm still fires
+     * moments later and would otherwise overwrite the correct previous mode with
+     * "silent" (the mode this very call just set), breaking the eventual revert.
+     */
     suspend fun handleStart(scheduleId: String) {
+        val key = previousModeKey(scheduleId)
+        if (preferencesDataStore.data.first().contains(key)) {
+            Log.i(TAG, "START $scheduleId: already active, skipping duplicate silence")
+            return
+        }
         val modeBeforeSilencing = ringerModeController.currentMode
-        preferencesDataStore.edit { prefs -> prefs[previousModeKey(scheduleId)] = modeBeforeSilencing }
+        preferencesDataStore.edit { prefs -> prefs[key] = modeBeforeSilencing }
         ringerModeController.silence()
         Log.i(TAG, "START $scheduleId: captured previous mode=$modeBeforeSilencing, now SILENT")
     }

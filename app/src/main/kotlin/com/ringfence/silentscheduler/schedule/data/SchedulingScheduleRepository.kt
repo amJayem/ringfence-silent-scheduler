@@ -1,9 +1,11 @@
 package com.ringfence.silentscheduler.schedule.data
 
+import com.ringfence.silentscheduler.schedule.domain.RecurringScheduleCalculator
 import com.ringfence.silentscheduler.schedule.domain.Schedule
 import com.ringfence.silentscheduler.schedule.domain.ScheduleRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import java.time.LocalDateTime
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -43,10 +45,28 @@ class SchedulingScheduleRepository @Inject constructor(
     }
 
     private suspend fun rearm(schedule: Schedule) {
-        if (schedule.isEnabled) {
-            alarmScheduler.scheduleNextOccurrence(schedule)
-        } else {
+        if (!schedule.isEnabled) {
             disable(schedule.id)
+            return
+        }
+        if (schedule.repeatDays.isEmpty()) {
+            // ScheduleAlarmScheduler already logs and skips this defensively;
+            // nothing to silence synchronously either.
+            return
+        }
+
+        alarmScheduler.scheduleNextOccurrence(schedule)
+
+        // If the window is already in progress (re-enabling mid-window, or a
+        // brand-new schedule created to cover right now), silence immediately
+        // instead of waiting on AlarmManager's async delivery — that round trip can
+        // take a few seconds, which felt like a lag on the enable toggle.
+        // triggerHandler.handleStart is idempotent, so the real alarm firing
+        // moments later is a harmless no-op.
+        val now = LocalDateTime.now()
+        val occurrence = RecurringScheduleCalculator.nextOccurrence(schedule, now)
+        if (!occurrence.start.isAfter(now) && occurrence.end.isAfter(now)) {
+            triggerHandler.handleStart(schedule.id)
         }
     }
 

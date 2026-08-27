@@ -9,14 +9,15 @@ import javax.inject.Singleton
 
 /**
  * Wraps the plain DataStore-backed [ScheduleRepositoryImpl] so every CRUD change
- * also keeps AlarmManager in sync — callers (ViewModels) go through the
- * [ScheduleRepository] interface and never need to remember to call the alarm
- * scheduler themselves.
+ * also keeps AlarmManager — and, where relevant, the live ringer mode — in sync.
+ * Callers (ViewModels) go through the [ScheduleRepository] interface and never need
+ * to remember to call the alarm scheduler or trigger handler themselves.
  */
 @Singleton
 class SchedulingScheduleRepository @Inject constructor(
     private val delegate: ScheduleRepositoryImpl,
-    private val alarmScheduler: ScheduleAlarmScheduler
+    private val alarmScheduler: ScheduleAlarmScheduler,
+    private val triggerHandler: ScheduleTriggerHandler
 ) : ScheduleRepository {
 
     override fun observeSchedules(): Flow<List<Schedule>> = delegate.observeSchedules()
@@ -28,20 +29,35 @@ class SchedulingScheduleRepository @Inject constructor(
 
     override suspend fun deleteSchedule(id: String) {
         delegate.deleteSchedule(id)
-        alarmScheduler.cancelOccurrence(id)
+        disable(id)
     }
 
     override suspend fun setEnabled(id: String, isEnabled: Boolean) {
         delegate.setEnabled(id, isEnabled)
-        val schedule = delegate.observeSchedules().first().find { it.id == id } ?: return
+        val schedule = delegate.observeSchedules().first().find { it.id == id }
+        if (schedule == null) {
+            disable(id)
+            return
+        }
         rearm(schedule)
     }
 
-    private fun rearm(schedule: Schedule) {
+    private suspend fun rearm(schedule: Schedule) {
         if (schedule.isEnabled) {
             alarmScheduler.scheduleNextOccurrence(schedule)
         } else {
-            alarmScheduler.cancelOccurrence(schedule.id)
+            disable(schedule.id)
         }
+    }
+
+    /**
+     * Cancels future alarms AND reverts the ringer mode right now if this schedule
+     * happened to be the one currently silencing the phone — previously, disabling
+     * or deleting an active schedule only canceled its future end alarm, leaving
+     * the phone stuck silent with nothing left to ever revert it.
+     */
+    private suspend fun disable(scheduleId: String) {
+        alarmScheduler.cancelOccurrence(scheduleId)
+        triggerHandler.revertIfCurrentlySilencing(scheduleId)
     }
 }

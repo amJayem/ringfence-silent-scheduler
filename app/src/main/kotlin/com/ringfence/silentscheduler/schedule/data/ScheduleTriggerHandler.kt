@@ -7,7 +7,6 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import com.ringfence.silentscheduler.core.ringer.RingerModeController
-import com.ringfence.silentscheduler.schedule.domain.ScheduleRepository
 import kotlinx.coroutines.flow.first
 import java.time.LocalDateTime
 import javax.inject.Inject
@@ -15,13 +14,19 @@ import javax.inject.Singleton
 
 /**
  * Shared by [ScheduleTriggerReceiver] (fired by AlarmManager at the natural end
- * time, passing "now" as the re-arm reference) and the Dashboard's manual "End
+ * time, passing "now" as the re-arm reference), the Dashboard's manual "End
  * silence now" action (which must pass the occurrence's own natural end time
- * instead — see [ScheduleAlarmScheduler.scheduleNextOccurrence]).
+ * instead — see [ScheduleAlarmScheduler.scheduleNextOccurrence]), and
+ * [SchedulingScheduleRepository] (disabling/deleting a currently-active schedule).
+ *
+ * Depends on the concrete [ScheduleRepositoryImpl], not the [com.ringfence.silentscheduler.schedule.domain.ScheduleRepository]
+ * interface — that interface resolves to [SchedulingScheduleRepository], which itself
+ * depends on this class, so depending on the interface here would be a Hilt
+ * dependency cycle.
  */
 @Singleton
 class ScheduleTriggerHandler @Inject constructor(
-    private val repository: ScheduleRepository,
+    private val repository: ScheduleRepositoryImpl,
     private val ringerModeController: RingerModeController,
     private val alarmScheduler: ScheduleAlarmScheduler,
     private val preferencesDataStore: DataStore<Preferences>
@@ -50,6 +55,23 @@ class ScheduleTriggerHandler @Inject constructor(
         } else {
             Log.i(TAG, "END $scheduleId: schedule missing or disabled, not re-arming")
         }
+    }
+
+    /**
+     * Reverts the ringer mode if this schedule is the one currently silencing the
+     * phone (i.e. it has a stored pre-silence snapshot from its START firing) —
+     * without touching alarms or scheduling a next occurrence, since the caller is
+     * disabling or deleting the schedule, not ending a still-recurring window.
+     * Used by [SchedulingScheduleRepository]: previously, disabling an active
+     * schedule only canceled its future end alarm, leaving the phone silenced with
+     * nothing left to ever revert it.
+     */
+    suspend fun revertIfCurrentlySilencing(scheduleId: String) {
+        val key = previousModeKey(scheduleId)
+        val previousMode = preferencesDataStore.data.first()[key] ?: return
+        ringerModeController.setMode(previousMode)
+        preferencesDataStore.edit { prefs -> prefs.remove(key) }
+        Log.i(TAG, "revertIfCurrentlySilencing $scheduleId: restored mode=$previousMode")
     }
 
     private fun previousModeKey(scheduleId: String) = intPreferencesKey("schedule_prev_ringer_mode_$scheduleId")

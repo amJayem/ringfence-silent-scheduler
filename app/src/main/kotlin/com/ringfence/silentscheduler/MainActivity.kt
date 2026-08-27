@@ -7,14 +7,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -33,12 +31,11 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.ringfence.silentscheduler.core.navigation.MainAppShell
 import com.ringfence.silentscheduler.core.theme.RingfenceTheme
 import com.ringfence.silentscheduler.onboarding.DndAccessScreen
 import com.ringfence.silentscheduler.onboarding.ExactAlarmAccessScreen
 import com.ringfence.silentscheduler.onboarding.OnboardingViewModel
-import com.ringfence.silentscheduler.quicksilence.ui.QuickSilenceScreen
-import com.ringfence.silentscheduler.schedule.ui.ScheduleDebugScreen
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -60,11 +57,12 @@ class MainActivity : ComponentActivity() {
 }
 
 /**
- * Steps 2+3 of the build order: DND permission explainer, exact-alarm explainer, then
- * Quick Silence. The "declined" placeholder below is temporary, standing in for the
- * Home Dashboard (step 7), just enough to verify permission state is detected
- * correctly on-device. Exact-alarm access can be skipped ("Not now") without blocking
- * the app — Quick Silence falls back to an inexact alarm, just less precisely timed.
+ * Steps 2+3+7 of the build order: DND permission explainer, exact-alarm explainer,
+ * then the full 3-tab app shell (Dashboard/Quick Silence/Settings). The "declined"
+ * placeholder below is a dead end for now — CLAUDE.md's revoked-permission banner
+ * belongs on the Dashboard itself, not handled here. Exact-alarm access can be
+ * skipped ("Not now") without blocking the app — Quick Silence and recurring
+ * schedules both fall back to an inexact alarm, just less precisely timed.
  */
 @Composable
 private fun RingfenceRoot() {
@@ -73,7 +71,6 @@ private fun RingfenceRoot() {
     val isExactAlarmGranted by viewModel.isExactAlarmGranted.collectAsState()
     var userDeclinedDnd by remember { mutableStateOf(false) }
     var userDeclinedExactAlarm by remember { mutableStateOf(false) }
-    var showScheduleDebug by remember { mutableStateOf(false) }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     val latestViewModel = rememberUpdatedState(viewModel)
@@ -108,13 +105,7 @@ private fun RingfenceRoot() {
             },
             onNotNowClick = { userDeclinedExactAlarm = true }
         )
-        showScheduleDebug -> ScheduleDebugScreen(onBack = { showScheduleDebug = false })
-        else -> Column(modifier = Modifier.fillMaxSize()) {
-            QuickSilenceScreen(modifier = Modifier.weight(1f))
-            TextButton(onClick = { showScheduleDebug = true }) {
-                Text("Debug: Schedules (step 4)")
-            }
-        }
+        else -> MainAppShell()
     }
 }
 

@@ -11,13 +11,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/**
- * Build-order step 4/5 verification harness only — exercises DataStore CRUD from a
- * throwaway UI so persistence-after-force-close can be checked on-device before the
- * real Dashboard (step 7) exists.
- */
+/** Backs both the "add schedule" and "edit schedule" nav destinations. */
 @HiltViewModel
-class ScheduleDebugViewModel @Inject constructor(
+class ScheduleFormViewModel @Inject constructor(
     private val repository: ScheduleRepository
 ) : ViewModel() {
 
@@ -25,20 +21,10 @@ class ScheduleDebugViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     fun save(schedule: Schedule) {
-        viewModelScope.launch {
-            repository.addOrUpdateSchedule(schedule)
-        }
+        viewModelScope.launch { repository.addOrUpdateSchedule(schedule) }
     }
 
-    fun toggleEnabled(schedule: Schedule) {
-        viewModelScope.launch {
-            repository.setEnabled(schedule.id, !schedule.isEnabled)
-        }
-    }
-
-    fun delete(schedule: Schedule) {
-        viewModelScope.launch {
-            repository.deleteSchedule(schedule.id)
-        }
+    fun delete(id: String) {
+        viewModelScope.launch { repository.deleteSchedule(id) }
     }
 }

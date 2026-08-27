@@ -1,0 +1,154 @@
+package com.ringfence.silentscheduler.schedule.ui
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.ringfence.silentscheduler.core.time.formatDurationMinutes
+import com.ringfence.silentscheduler.core.time.formatMinuteOfDay
+import com.ringfence.silentscheduler.quicksilence.domain.DEFAULT_QUICK_SILENCE_DURATION_MILLIS
+import com.ringfence.silentscheduler.quicksilence.domain.QuickSilenceRepository
+import com.ringfence.silentscheduler.schedule.data.ScheduleTriggerHandler
+import com.ringfence.silentscheduler.schedule.domain.RecurringScheduleCalculator
+import com.ringfence.silentscheduler.schedule.domain.Schedule
+import com.ringfence.silentscheduler.schedule.domain.ScheduleOccurrence
+import com.ringfence.silentscheduler.schedule.domain.ScheduleRepository
+import com.ringfence.silentscheduler.schedule.domain.toRepeatSummary
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import java.time.Duration
+import java.time.LocalDateTime
+import java.time.format.TextStyle
+import java.util.Locale
+import javax.inject.Inject
+
+data class ScheduleRowUiState(
+    val schedule: Schedule,
+    val timeRangeText: String,
+    val repeatText: String,
+    val caption: String,
+    val isActiveNow: Boolean
+)
+
+data class ActiveCardState(
+    val scheduleId: String,
+    val label: String,
+    val endTime: LocalDateTime,
+    val remainingText: String,
+    val untilText: String
+)
+
+data class DashboardUiState(
+    val dayLabel: String = "",
+    val active: ActiveCardState? = null,
+    val idleRemainingText: String? = null,
+    val idleUntilText: String? = null,
+    val rows: List<ScheduleRowUiState> = emptyList(),
+    val enabledCount: Int = 0,
+    val totalCount: Int = 0
+)
+
+@HiltViewModel
+class DashboardViewModel @Inject constructor(
+    private val repository: ScheduleRepository,
+    private val quickSilenceRepository: QuickSilenceRepository,
+    private val triggerHandler: ScheduleTriggerHandler
+) : ViewModel() {
+
+    // Recomputes derived state (countdowns, NOW badges) even when nothing in
+    // storage changed — 30s granularity matches the "Xh Ym" display, no need for
+    // per-second ticking.
+    private val ticker = flow {
+        while (true) {
+            emit(Unit)
+            delay(30_000)
+        }
+    }
+
+    val uiState: StateFlow<DashboardUiState> = combine(repository.observeSchedules(), ticker) { schedules, _ ->
+        buildState(schedules, LocalDateTime.now())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DashboardUiState())
+
+    private fun buildState(schedules: List<Schedule>, now: LocalDateTime): DashboardUiState {
+        val dayLabel = now.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())
+
+        val occurrencesById: Map<String, ScheduleOccurrence> = schedules
+            .filter { it.isEnabled && it.repeatDays.isNotEmpty() }
+            .associate { it.id to RecurringScheduleCalculator.nextOccurrence(it, now) }
+
+        val activeSchedule = schedules.firstOrNull { schedule ->
+            val occ = occurrencesById[schedule.id] ?: return@firstOrNull false
+            !occ.start.isAfter(now) && occ.end.isAfter(now)
+        }
+
+        val active = activeSchedule?.let { schedule ->
+            val occ = occurrencesById.getValue(schedule.id)
+            val endMinuteOfDay = occ.end.hour * 60 + occ.end.minute
+            ActiveCardState(
+                scheduleId = schedule.id,
+                label = schedule.label,
+                endTime = occ.end,
+                remainingText = formatDurationMinutes(Duration.between(now, occ.end).toMinutes()),
+                untilText = "${schedule.label} · until ${formatMinuteOfDay(endMinuteOfDay)}"
+            )
+        }
+
+        var idleRemainingText: String? = null
+        var idleUntilText: String? = null
+        if (active == null) {
+            val soonest = schedules
+                .mapNotNull { schedule -> occurrencesById[schedule.id]?.let { schedule to it } }
+                .minByOrNull { (_, occ) -> occ.start }
+            if (soonest != null) {
+                val (schedule, occ) = soonest
+                idleRemainingText = formatDurationMinutes(Duration.between(now, occ.start).toMinutes())
+                idleUntilText = "until ${schedule.label} at ${formatMinuteOfDay(schedule.startMinuteOfDay)}"
+            }
+        }
+
+        val rows = schedules.map { schedule ->
+            val occ = occurrencesById[schedule.id]
+            val isActiveNow = occ != null && !occ.start.isAfter(now) && occ.end.isAfter(now)
+            val caption = when {
+                !schedule.isEnabled -> "Off"
+                occ == null -> ""
+                isActiveNow -> "NOW · Silent until ${formatMinuteOfDay(schedule.endMinuteOfDay)}"
+                else -> "Next in ${formatDurationMinutes(Duration.between(now, occ.start).toMinutes())}"
+            }
+            ScheduleRowUiState(
+                schedule = schedule,
+                timeRangeText = "${formatMinuteOfDay(schedule.startMinuteOfDay)} – ${formatMinuteOfDay(schedule.endMinuteOfDay)}",
+                repeatText = schedule.repeatDays.toRepeatSummary(),
+                caption = caption,
+                isActiveNow = isActiveNow
+            )
+        }
+
+        return DashboardUiState(
+            dayLabel = dayLabel,
+            active = active,
+            idleRemainingText = idleRemainingText,
+            idleUntilText = idleUntilText,
+            rows = rows,
+            enabledCount = schedules.count { it.isEnabled },
+            totalCount = schedules.size
+        )
+    }
+
+    fun toggleEnabled(schedule: Schedule) {
+        viewModelScope.launch { repository.setEnabled(schedule.id, !schedule.isEnabled) }
+    }
+
+    fun endActiveNow() {
+        val active = uiState.value.active ?: return
+        viewModelScope.launch { triggerHandler.handleEnd(active.scheduleId, active.endTime) }
+    }
+
+    fun silentNow() {
+        viewModelScope.launch { quickSilenceRepository.startSilence(DEFAULT_QUICK_SILENCE_DURATION_MILLIS) }
+    }
+}

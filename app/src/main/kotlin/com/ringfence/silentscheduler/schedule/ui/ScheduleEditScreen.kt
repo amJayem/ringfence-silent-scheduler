@@ -1,5 +1,6 @@
 package com.ringfence.silentscheduler.schedule.ui
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -32,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import com.ringfence.silentscheduler.core.time.formatMinuteOfDay
 import com.ringfence.silentscheduler.schedule.domain.Schedule
 import java.time.DayOfWeek
 import java.util.UUID
@@ -47,13 +49,19 @@ fun ScheduleEditScreen(
     initial: Schedule?,
     onSave: (Schedule) -> Unit,
     onCancel: () -> Unit,
+    onDelete: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    var label by remember { mutableStateOf(initial?.label.orEmpty()) }
-    var startMinuteOfDay by remember { mutableIntStateOf(initial?.startMinuteOfDay ?: 9 * 60) }
-    var endMinuteOfDay by remember { mutableIntStateOf(initial?.endMinuteOfDay ?: 10 * 60) }
-    var repeatDays by remember { mutableStateOf(initial?.repeatDays ?: emptySet()) }
-    var isEnabled by remember { mutableStateOf(initial?.isEnabled ?: true) }
+    // Keyed on `initial` (not a bare `remember`): the caller navigates here before its
+    // schedule list has necessarily loaded from DataStore, so `initial` can arrive
+    // null on the first composition and flip to the real Schedule a moment later.
+    // An unkeyed remember would freeze on that first (blank) value and never pick up
+    // the real one.
+    var label by remember(initial) { mutableStateOf(initial?.label.orEmpty()) }
+    var startMinuteOfDay by remember(initial) { mutableIntStateOf(initial?.startMinuteOfDay ?: 9 * 60) }
+    var endMinuteOfDay by remember(initial) { mutableIntStateOf(initial?.endMinuteOfDay ?: 10 * 60) }
+    var repeatDays by remember(initial) { mutableStateOf(initial?.repeatDays ?: emptySet()) }
+    var isEnabled by remember(initial) { mutableStateOf(initial?.isEnabled ?: true) }
 
     var editingStart by remember { mutableStateOf(false) }
     var editingEnd by remember { mutableStateOf(false) }
@@ -64,8 +72,15 @@ fun ScheduleEditScreen(
             .safeDrawingPadding()
             .padding(16.dp)
     ) {
-        TextButton(onClick = onCancel) {
-            Text("Cancel")
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            TextButton(onClick = onCancel) {
+                Text("Cancel")
+            }
+            if (initial != null && onDelete != null) {
+                TextButton(onClick = onDelete) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            }
         }
 
         Text(
@@ -192,12 +207,4 @@ private fun TimeOfDayPickerDialog(
             }
         }
     }
-}
-
-private fun formatMinuteOfDay(minuteOfDay: Int): String {
-    val hour24 = minuteOfDay / 60
-    val minute = minuteOfDay % 60
-    val amPm = if (hour24 < 12) "AM" else "PM"
-    val hour12 = if (hour24 % 12 == 0) 12 else hour24 % 12
-    return "%d:%02d %s".format(hour12, minute, amPm)
 }

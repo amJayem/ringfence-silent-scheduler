@@ -2,6 +2,7 @@ package com.ringfence.silentscheduler.quicksilence.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ringfence.silentscheduler.quicksilence.domain.DEFAULT_QUICK_SILENCE_DURATION_MILLIS
 import com.ringfence.silentscheduler.quicksilence.domain.QuickSilenceRepository
 import com.ringfence.silentscheduler.quicksilence.domain.QuickSilenceState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -24,7 +25,7 @@ class QuickSilenceViewModel @Inject constructor(
      * the Settings default-duration value (15m/30m/1h/2h, per DESIGN_NOTES.md) once
      * the Settings screen (step 8) exists.
      */
-    fun startSilence(durationMillis: Long = TEST_DURATION_MILLIS) {
+    fun startSilence(durationMillis: Long = DEFAULT_QUICK_SILENCE_DURATION_MILLIS) {
         viewModelScope.launch {
             repository.startSilence(durationMillis)
         }
@@ -34,9 +35,5 @@ class QuickSilenceViewModel @Inject constructor(
         viewModelScope.launch {
             repository.revertSilence()
         }
-    }
-
-    companion object {
-        const val TEST_DURATION_MILLIS = 30_000L
     }
 }

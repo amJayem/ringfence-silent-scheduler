@@ -27,7 +27,15 @@ class ScheduleAlarmScheduler @Inject constructor(
 ) {
     private val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
-    fun scheduleNextOccurrence(schedule: Schedule) {
+    /**
+     * @param referenceTime search for the next occurrence starting from this instant.
+     * Callers re-arming after a *natural* end (the alarm fired at ~the true end time)
+     * can rely on the default; a *manual* early end must pass the occurrence's own
+     * natural end time instead of "now" — otherwise, since "now" would still fall
+     * inside the just-ended window, the search would find that same still-in-progress
+     * occurrence again instead of skipping to the next one.
+     */
+    fun scheduleNextOccurrence(schedule: Schedule, referenceTime: LocalDateTime = LocalDateTime.now()) {
         // Defensive, not a UI substitute: ScheduleEditScreen already blocks saving with
         // zero repeat days, but this also guards schedules already sitting in storage
         // from an earlier build that allowed it (RecurringScheduleCalculator throws on
@@ -38,7 +46,7 @@ class ScheduleAlarmScheduler @Inject constructor(
             return
         }
 
-        val occurrence = RecurringScheduleCalculator.nextOccurrence(schedule, LocalDateTime.now())
+        val occurrence = RecurringScheduleCalculator.nextOccurrence(schedule, referenceTime)
         val zone = ZoneId.systemDefault()
         val startMillis = occurrence.start.atZone(zone).toInstant().toEpochMilli()
         val endMillis = occurrence.end.atZone(zone).toInstant().toEpochMilli()

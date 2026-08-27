@@ -119,6 +119,15 @@ fun ScheduleEditScreen(
 
         Spacer(Modifier.height(24.dp))
 
+        if (repeatDays.isEmpty()) {
+            Text(
+                "Select at least one day",
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall
+            )
+            Spacer(Modifier.height(4.dp))
+        }
+
         Button(
             onClick = {
                 onSave(
@@ -132,6 +141,7 @@ fun ScheduleEditScreen(
                     )
                 )
             },
+            enabled = repeatDays.isNotEmpty(),
             shape = RoundedCornerShape(percent = 50),
             modifier = Modifier.fillMaxWidth()
         ) {

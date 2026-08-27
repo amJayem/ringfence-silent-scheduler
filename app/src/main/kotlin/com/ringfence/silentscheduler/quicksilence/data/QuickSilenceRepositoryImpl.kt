@@ -1,6 +1,5 @@
 package com.ringfence.silentscheduler.quicksilence.data
 
-import android.content.Context
 import android.media.AudioManager
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
@@ -8,9 +7,9 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
+import com.ringfence.silentscheduler.core.ringer.RingerModeController
 import com.ringfence.silentscheduler.quicksilence.domain.QuickSilenceRepository
 import com.ringfence.silentscheduler.quicksilence.domain.QuickSilenceState
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -25,12 +24,10 @@ private object Keys {
 
 @Singleton
 class QuickSilenceRepositoryImpl @Inject constructor(
-    @ApplicationContext context: Context,
+    private val ringerModeController: RingerModeController,
     private val dataStore: DataStore<Preferences>,
     private val alarmScheduler: SilenceAlarmScheduler
 ) : QuickSilenceRepository {
-
-    private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
     override fun observeState(): Flow<QuickSilenceState> = dataStore.data.map { prefs ->
         QuickSilenceState(
@@ -40,7 +37,7 @@ class QuickSilenceRepositoryImpl @Inject constructor(
     }
 
     override suspend fun startSilence(durationMillis: Long) {
-        val previousMode = audioManager.ringerMode
+        val previousMode = ringerModeController.currentMode
         val endTime = System.currentTimeMillis() + durationMillis
         dataStore.edit { prefs ->
             prefs[Keys.IS_ACTIVE] = true
@@ -50,13 +47,13 @@ class QuickSilenceRepositoryImpl @Inject constructor(
         // Requires ACCESS_NOTIFICATION_POLICY (already granted before this screen is
         // reachable). Not wrapped defensively here — CLAUDE.md's revoked-permission
         // banner belongs on the Dashboard (step 7), not swallowed silently here.
-        audioManager.ringerMode = AudioManager.RINGER_MODE_SILENT
+        ringerModeController.silence()
         alarmScheduler.scheduleRevert(endTime)
     }
 
     override suspend fun revertSilence() {
         val previousMode = dataStore.data.first()[Keys.PREVIOUS_RINGER_MODE] ?: AudioManager.RINGER_MODE_NORMAL
-        audioManager.ringerMode = previousMode
+        ringerModeController.setMode(previousMode)
         dataStore.edit { prefs ->
             prefs[Keys.IS_ACTIVE] = false
         }

@@ -1,5 +1,6 @@
 package com.ringfence.silentscheduler.schedule.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,15 +19,19 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.ringfence.silentscheduler.schedule.domain.Schedule
 
 /**
- * Build-order step 4 verification harness only — not the real Dashboard (step 7) or
- * Add/Edit Schedule screen (step 5), and not styled to the Claude Design source.
- * Exists purely to prove DataStore CRUD persists correctly after a force-close.
+ * Build-order step 4/5 verification harness only — not the real Dashboard (step 7),
+ * and not styled to the Claude Design source. Exists to prove DataStore CRUD works
+ * end to end, including through the real Add/Edit Schedule screen.
  */
 @Composable
 fun ScheduleDebugScreen(
@@ -35,6 +40,29 @@ fun ScheduleDebugScreen(
     viewModel: ScheduleDebugViewModel = hiltViewModel()
 ) {
     val schedules by viewModel.schedules.collectAsState()
+
+    // null = not editing, Schedule(...) = editing that row, a placeholder empty
+    // Schedule id "" = adding new. Simplified stand-in for the real Dashboard -> Add/
+    // Edit navigation that step 7 will introduce.
+    var editingTarget by remember { mutableStateOf<Schedule?>(null) }
+    var isAddingNew by remember { mutableStateOf(false) }
+
+    if (isAddingNew || editingTarget != null) {
+        ScheduleEditScreen(
+            initial = editingTarget,
+            onSave = {
+                viewModel.save(it)
+                isAddingNew = false
+                editingTarget = null
+            },
+            onCancel = {
+                isAddingNew = false
+                editingTarget = null
+            },
+            modifier = modifier
+        )
+        return
+    }
 
     Column(
         modifier = modifier
@@ -47,14 +75,14 @@ fun ScheduleDebugScreen(
         }
 
         Text(
-            text = "Step 4 debug: Schedule DataStore CRUD",
+            text = "Step 4/5 debug: Schedule CRUD",
             style = MaterialTheme.typography.titleMedium
         )
 
         Spacer(Modifier.height(8.dp))
 
-        Button(onClick = { viewModel.addTestSchedule() }) {
-            Text("Add test schedule")
+        Button(onClick = { isAddingNew = true }) {
+            Text("+ Add schedule")
         }
 
         Spacer(Modifier.height(16.dp))
@@ -64,6 +92,7 @@ fun ScheduleDebugScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .clickable { editingTarget = schedule }
                         .padding(vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {

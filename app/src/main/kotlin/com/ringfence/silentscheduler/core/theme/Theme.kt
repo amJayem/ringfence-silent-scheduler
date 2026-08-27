@@ -5,10 +5,19 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 
+// onPrimary/onSecondaryContainer aren't derivable from the sampled surface colors —
+// they're set explicitly here because Material3's baseline defaults assume a
+// different primary tone than ours and pick the wrong contrast color otherwise (seen
+// on-device: the Switch thumb turned a muddy dark color in dark mode because
+// unset onPrimary fell back to Material's baseline dark-mode default instead of the
+// white the design actually uses in both themes).
 private val LightColors = lightColorScheme(
     primary = AccentLight,
+    onPrimary = Color.White,
     secondaryContainer = AccentSoftLight,
+    onSecondaryContainer = AccentLight,
     background = BackgroundLight,
     surface = SurfaceLight,
     onBackground = OnSurfaceLight,
@@ -19,7 +28,9 @@ private val LightColors = lightColorScheme(
 
 private val DarkColors = darkColorScheme(
     primary = AccentDark,
+    onPrimary = Color.White,
     secondaryContainer = AccentSoftDark,
+    onSecondaryContainer = AccentDark,
     background = BackgroundDark,
     surface = SurfaceDark,
     onBackground = OnSurfaceDark,

@@ -9,10 +9,22 @@ fun formatMinuteOfDay(minuteOfDay: Int): String {
     return "%d:%02d %s".format(hour12, minute, amPm)
 }
 
-/** e.g. 84 minutes -> "1h 24m"; 24 minutes -> "24m" */
+/**
+ * Escalates granularity as the duration grows, rather than showing e.g. "168h 0m"
+ * for a week away: minutes -> hours+minutes -> days+hours (24h+) -> weeks+days (7d+).
+ */
 fun formatDurationMinutes(totalMinutes: Long): String {
     val minutes = totalMinutes.coerceAtLeast(0)
-    val hours = minutes / 60
-    val remainder = minutes % 60
-    return if (hours > 0) "${hours}h ${remainder}m" else "${remainder}m"
+    val weeks = minutes / (7 * 24 * 60)
+    val daysRemainder = (minutes % (7 * 24 * 60)) / (24 * 60)
+    val days = minutes / (24 * 60)
+    val hours = (minutes % (24 * 60)) / 60
+    val mins = minutes % 60
+
+    return when {
+        weeks > 0 -> "${weeks}w ${daysRemainder}d"
+        days > 0 -> "${days}d ${hours}h"
+        hours > 0 -> "${hours}h ${mins}m"
+        else -> "${mins}m"
+    }
 }

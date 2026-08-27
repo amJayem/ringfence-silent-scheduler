@@ -14,6 +14,7 @@ import com.ringfence.silentscheduler.schedule.domain.ScheduleRepository
 import com.ringfence.silentscheduler.schedule.domain.toRepeatSummary
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -69,7 +70,17 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
-    val uiState: StateFlow<DashboardUiState> = combine(repository.observeSchedules(), ticker) { schedules, _ ->
+    // endActiveNow() doesn't change any Schedule's stored fields (the occurrence is
+    // derived, not persisted), so repository.observeSchedules() never re-emits after
+    // it — without this, the active/idle card would only catch up on the next 30s
+    // tick instead of reflecting the tap immediately.
+    private val manualRefresh = MutableStateFlow(0)
+
+    val uiState: StateFlow<DashboardUiState> = combine(
+        repository.observeSchedules(),
+        ticker,
+        manualRefresh
+    ) { schedules, _, _ ->
         buildState(schedules, LocalDateTime.now())
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DashboardUiState())
 
@@ -145,7 +156,10 @@ class DashboardViewModel @Inject constructor(
 
     fun endActiveNow() {
         val active = uiState.value.active ?: return
-        viewModelScope.launch { triggerHandler.handleEnd(active.scheduleId, active.endTime) }
+        viewModelScope.launch {
+            triggerHandler.handleEnd(active.scheduleId, active.endTime)
+            manualRefresh.value++
+        }
     }
 
     fun silentNow() {

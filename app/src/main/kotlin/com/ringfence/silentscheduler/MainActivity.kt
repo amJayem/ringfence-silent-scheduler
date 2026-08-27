@@ -33,6 +33,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.ringfence.silentscheduler.core.theme.RingfenceTheme
 import com.ringfence.silentscheduler.onboarding.DndAccessScreen
 import com.ringfence.silentscheduler.onboarding.OnboardingViewModel
+import com.ringfence.silentscheduler.quicksilence.ui.QuickSilenceScreen
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -77,7 +78,7 @@ private fun RingfenceRoot() {
     val context = LocalContext.current
 
     when {
-        isDndAccessGranted -> PlaceholderScreen(stringRes = R.string.dnd_access_granted_placeholder)
+        isDndAccessGranted -> QuickSilenceScreen()
         userDeclined -> PlaceholderScreen(stringRes = R.string.dnd_access_declined_placeholder)
         else -> DndAccessScreen(
             onAllowClick = {

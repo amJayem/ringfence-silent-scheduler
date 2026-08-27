@@ -32,6 +32,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.ringfence.silentscheduler.core.theme.RingfenceTheme
 import com.ringfence.silentscheduler.onboarding.DndAccessScreen
+import com.ringfence.silentscheduler.onboarding.ExactAlarmAccessScreen
 import com.ringfence.silentscheduler.onboarding.OnboardingViewModel
 import com.ringfence.silentscheduler.quicksilence.ui.QuickSilenceScreen
 import dagger.hilt.android.AndroidEntryPoint
@@ -52,16 +53,19 @@ class MainActivity : ComponentActivity() {
 }
 
 /**
- * Step 2 of the build order: DND permission explainer + request flow only. The
- * "granted"/"declined" states below are temporary placeholders standing in for the
- * Home Dashboard (step 7), just enough to verify the permission is detected correctly
- * on-device.
+ * Steps 2+3 of the build order: DND permission explainer, exact-alarm explainer, then
+ * Quick Silence. The "declined" placeholder below is temporary, standing in for the
+ * Home Dashboard (step 7), just enough to verify permission state is detected
+ * correctly on-device. Exact-alarm access can be skipped ("Not now") without blocking
+ * the app — Quick Silence falls back to an inexact alarm, just less precisely timed.
  */
 @Composable
 private fun RingfenceRoot() {
     val viewModel: OnboardingViewModel = hiltViewModel()
     val isDndAccessGranted by viewModel.isDndAccessGranted.collectAsState()
-    var userDeclined by remember { mutableStateOf(false) }
+    val isExactAlarmGranted by viewModel.isExactAlarmGranted.collectAsState()
+    var userDeclinedDnd by remember { mutableStateOf(false) }
+    var userDeclinedExactAlarm by remember { mutableStateOf(false) }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     val latestViewModel = rememberUpdatedState(viewModel)
@@ -78,14 +82,25 @@ private fun RingfenceRoot() {
     val context = LocalContext.current
 
     when {
-        isDndAccessGranted -> QuickSilenceScreen()
-        userDeclined -> PlaceholderScreen(stringRes = R.string.dnd_access_declined_placeholder)
-        else -> DndAccessScreen(
+        userDeclinedDnd -> PlaceholderScreen(stringRes = R.string.dnd_access_declined_placeholder)
+        !isDndAccessGranted -> DndAccessScreen(
             onAllowClick = {
                 context.startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
             },
-            onNotNowClick = { userDeclined = true }
+            onNotNowClick = { userDeclinedDnd = true }
         )
+        !isExactAlarmGranted && !userDeclinedExactAlarm -> ExactAlarmAccessScreen(
+            onAllowClick = {
+                context.startActivity(
+                    Intent(
+                        Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                        android.net.Uri.parse("package:${context.packageName}")
+                    )
+                )
+            },
+            onNotNowClick = { userDeclinedExactAlarm = true }
+        )
+        else -> QuickSilenceScreen()
     }
 }
 

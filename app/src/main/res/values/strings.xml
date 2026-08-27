@@ -12,6 +12,10 @@
     <string name="onboarding_allow_cta">Allow Do Not Disturb access</string>
     <string name="onboarding_not_now">Not now</string>
 
+    <string name="exact_alarm_headline">One more permission for on-time silencing.</string>
+    <string name="exact_alarm_body">Without exact alarm access, Android may delay turning your sound back on by up to a minute. Allow it so silence windows end exactly when scheduled.</string>
+    <string name="exact_alarm_allow_cta">Allow exact alarms</string>
+
     <string name="dnd_access_declined_placeholder">DND access not granted.\nOpen Settings from here to allow it later.</string>
 
     <string name="quick_silence_idle_title">Ringfence: Silent Scheduler</string>

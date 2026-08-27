@@ -1,3 +1,17 @@
 <resources>
     <string name="app_name">Ringfence</string>
+
+    <string name="onboarding_headline">Your phone remembers to un-mute.</string>
+    <string name="onboarding_body">Ringfence mutes your phone at the start of a window and turns sound back on the moment it ends. Nothing is left silent by accident.</string>
+    <string name="onboarding_bullet_dnd_title">Do Not Disturb access</string>
+    <string name="onboarding_bullet_dnd_body">Required to change your ringer — it\'s the only permission we ask for.</string>
+    <string name="onboarding_bullet_schedule_title">Runs on a schedule, not in the background</string>
+    <string name="onboarding_bullet_schedule_body">No location, no contacts, no network. Timers only.</string>
+    <string name="onboarding_bullet_revert_title">Always reverts</string>
+    <string name="onboarding_bullet_revert_body">If the app is killed mid-window, sound is restored on next launch.</string>
+    <string name="onboarding_allow_cta">Allow Do Not Disturb access</string>
+    <string name="onboarding_not_now">Not now</string>
+
+    <string name="dnd_access_granted_placeholder">DND access granted ✓\n— next: Quick Silence flow</string>
+    <string name="dnd_access_declined_placeholder">DND access not granted.\nOpen Settings from here to allow it later.</string>
 </resources>

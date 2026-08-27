@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+option java_package = "com.ringfence.silentscheduler.schedule.data.proto";
+option java_multiple_files = true;
+
+message ScheduleListProto {
+  repeated ScheduleProto schedules = 1;
+}
+
+// start_minute_of_day / end_minute_of_day are minutes since midnight (0-1439).
+// end <= start means an overnight window (e.g. 23:00-07:00) — the recurring
+// trigger logic (build order step 6) handles that case explicitly.
+message ScheduleProto {
+  string id = 1;
+  string label = 2;
+  int32 start_minute_of_day = 3;
+  int32 end_minute_of_day = 4;
+  repeated int32 repeat_days = 5; // java.time.DayOfWeek values: 1=Monday..7=Sunday
+  bool is_enabled = 6;
+}

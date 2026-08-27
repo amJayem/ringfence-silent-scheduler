@@ -7,11 +7,13 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -35,6 +37,7 @@ import com.ringfence.silentscheduler.onboarding.DndAccessScreen
 import com.ringfence.silentscheduler.onboarding.ExactAlarmAccessScreen
 import com.ringfence.silentscheduler.onboarding.OnboardingViewModel
 import com.ringfence.silentscheduler.quicksilence.ui.QuickSilenceScreen
+import com.ringfence.silentscheduler.schedule.ui.ScheduleDebugScreen
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -66,6 +69,7 @@ private fun RingfenceRoot() {
     val isExactAlarmGranted by viewModel.isExactAlarmGranted.collectAsState()
     var userDeclinedDnd by remember { mutableStateOf(false) }
     var userDeclinedExactAlarm by remember { mutableStateOf(false) }
+    var showScheduleDebug by remember { mutableStateOf(false) }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     val latestViewModel = rememberUpdatedState(viewModel)
@@ -100,7 +104,13 @@ private fun RingfenceRoot() {
             },
             onNotNowClick = { userDeclinedExactAlarm = true }
         )
-        else -> QuickSilenceScreen()
+        showScheduleDebug -> ScheduleDebugScreen(onBack = { showScheduleDebug = false })
+        else -> Column(modifier = Modifier.fillMaxSize()) {
+            QuickSilenceScreen(modifier = Modifier.weight(1f))
+            TextButton(onClick = { showScheduleDebug = true }) {
+                Text("Debug: Schedules (step 4)")
+            }
+        }
     }
 }
 

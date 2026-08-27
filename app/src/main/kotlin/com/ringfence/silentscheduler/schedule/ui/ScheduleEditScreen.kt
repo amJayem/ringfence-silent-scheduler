@@ -41,6 +41,7 @@ import com.ringfence.silentscheduler.R
 import com.ringfence.silentscheduler.core.time.formatMinuteOfDay
 import com.ringfence.silentscheduler.schedule.domain.Schedule
 import java.time.DayOfWeek
+import java.time.LocalTime
 import java.util.UUID
 
 /**
@@ -63,8 +64,21 @@ fun ScheduleEditScreen(
     // An unkeyed remember would freeze on that first (blank) value and never pick up
     // the real one.
     var label by remember(initial) { mutableStateOf(initial?.label.orEmpty()) }
-    var startMinuteOfDay by remember(initial) { mutableIntStateOf(initial?.startMinuteOfDay ?: 9 * 60) }
-    var endMinuteOfDay by remember(initial) { mutableIntStateOf(initial?.endMinuteOfDay ?: 10 * 60) }
+
+    // For a brand-new schedule, default to the next round half-hour from now (e.g.
+    // 1:17 -> 1:30) rather than a fixed 9-10 AM, so the picker opens somewhere near
+    // what the user probably wants.
+    val defaultStartMinuteOfDay = remember(initial) {
+        val now = LocalTime.now()
+        val roundedUp = ((now.hour * 60 + now.minute + 29) / 30) * 30
+        roundedUp % (24 * 60)
+    }
+    var startMinuteOfDay by remember(initial) {
+        mutableIntStateOf(initial?.startMinuteOfDay ?: defaultStartMinuteOfDay)
+    }
+    var endMinuteOfDay by remember(initial) {
+        mutableIntStateOf(initial?.endMinuteOfDay ?: (defaultStartMinuteOfDay + 60) % (24 * 60))
+    }
     var repeatDays by remember(initial) { mutableStateOf(initial?.repeatDays ?: emptySet()) }
     var isEnabled by remember(initial) { mutableStateOf(initial?.isEnabled ?: true) }
 
@@ -197,9 +211,9 @@ private fun TimeOfDayPickerDialog(
         initialMinute = initialMinuteOfDay % 60,
         is24Hour = false
     )
-    // Defaults to the dial; a toggle switches to TimeInput (numeric keyboard entry)
+    // Defaults to TimeInput (numeric keyboard entry); a toggle switches to the dial
     // without losing the selection — both read/write the same TimePickerState.
-    var useKeyboardInput by remember { mutableStateOf(false) }
+    var useKeyboardInput by remember { mutableStateOf(true) }
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(shape = RoundedCornerShape(28.dp)) {

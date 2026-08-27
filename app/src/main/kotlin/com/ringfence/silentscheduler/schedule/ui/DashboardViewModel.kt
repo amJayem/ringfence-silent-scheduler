@@ -6,6 +6,7 @@ import com.ringfence.silentscheduler.core.time.formatDurationMinutes
 import com.ringfence.silentscheduler.core.time.formatMinuteOfDay
 import com.ringfence.silentscheduler.quicksilence.domain.DEFAULT_QUICK_SILENCE_DURATION_MILLIS
 import com.ringfence.silentscheduler.quicksilence.domain.QuickSilenceRepository
+import com.ringfence.silentscheduler.quicksilence.domain.QuickSilenceState
 import com.ringfence.silentscheduler.schedule.data.ScheduleTriggerHandler
 import com.ringfence.silentscheduler.schedule.domain.RecurringScheduleCalculator
 import com.ringfence.silentscheduler.schedule.domain.Schedule
@@ -22,7 +23,9 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.Duration
+import java.time.Instant
 import java.time.LocalDateTime
+import java.time.ZoneId
 import java.time.format.TextStyle
 import java.util.Locale
 import javax.inject.Inject
@@ -35,12 +38,17 @@ data class ScheduleRowUiState(
     val isActiveNow: Boolean
 )
 
+/** Which mechanism is currently silencing the phone — determines what [DashboardViewModel.endActiveNow] calls. */
+sealed class ActiveSource {
+    data class FromSchedule(val scheduleId: String, val endTime: LocalDateTime) : ActiveSource()
+    data object FromQuickSilence : ActiveSource()
+}
+
 data class ActiveCardState(
-    val scheduleId: String,
     val label: String,
-    val endTime: LocalDateTime,
     val remainingText: String,
-    val untilText: String
+    val untilText: String,
+    val source: ActiveSource
 )
 
 data class DashboardUiState(
@@ -78,13 +86,14 @@ class DashboardViewModel @Inject constructor(
 
     val uiState: StateFlow<DashboardUiState> = combine(
         repository.observeSchedules(),
+        quickSilenceRepository.observeState(),
         ticker,
         manualRefresh
-    ) { schedules, _, _ ->
-        buildState(schedules, LocalDateTime.now())
+    ) { schedules, quickSilence, _, _ ->
+        buildState(schedules, quickSilence, LocalDateTime.now())
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DashboardUiState())
 
-    private fun buildState(schedules: List<Schedule>, now: LocalDateTime): DashboardUiState {
+    private fun buildState(schedules: List<Schedule>, quickSilence: QuickSilenceState, now: LocalDateTime): DashboardUiState {
         val dayLabel = now.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())
 
         val occurrencesById: Map<String, ScheduleOccurrence> = schedules
@@ -96,16 +105,30 @@ class DashboardViewModel @Inject constructor(
             !occ.start.isAfter(now) && occ.end.isAfter(now)
         }
 
-        val active = activeSchedule?.let { schedule ->
-            val occ = occurrencesById.getValue(schedule.id)
-            val endMinuteOfDay = occ.end.hour * 60 + occ.end.minute
-            ActiveCardState(
-                scheduleId = schedule.id,
-                label = schedule.label,
-                endTime = occ.end,
-                remainingText = formatDurationMinutes(Duration.between(now, occ.end).toMinutes()),
-                untilText = "${schedule.label} · until ${formatMinuteOfDay(endMinuteOfDay)}"
-            )
+        // Quick Silence takes priority for display when both happen to be active —
+        // it's the one the user just tapped, so it should be the one they can end.
+        val active: ActiveCardState? = when {
+            quickSilence.isActive -> {
+                val endTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(quickSilence.endTimeMillis), ZoneId.systemDefault())
+                val endMinuteOfDay = endTime.hour * 60 + endTime.minute
+                ActiveCardState(
+                    label = "Quick silence",
+                    remainingText = formatDurationMinutes(Duration.between(now, endTime).toMinutes()),
+                    untilText = "Quick silence · until ${formatMinuteOfDay(endMinuteOfDay)}",
+                    source = ActiveSource.FromQuickSilence
+                )
+            }
+            activeSchedule != null -> {
+                val occ = occurrencesById.getValue(activeSchedule.id)
+                val endMinuteOfDay = occ.end.hour * 60 + occ.end.minute
+                ActiveCardState(
+                    label = activeSchedule.label,
+                    remainingText = formatDurationMinutes(Duration.between(now, occ.end).toMinutes()),
+                    untilText = "${activeSchedule.label} · until ${formatMinuteOfDay(endMinuteOfDay)}",
+                    source = ActiveSource.FromSchedule(activeSchedule.id, occ.end)
+                )
+            }
+            else -> null
         }
 
         var idleRemainingText: String? = null
@@ -157,7 +180,10 @@ class DashboardViewModel @Inject constructor(
     fun endActiveNow() {
         val active = uiState.value.active ?: return
         viewModelScope.launch {
-            triggerHandler.handleEnd(active.scheduleId, active.endTime)
+            when (val source = active.source) {
+                is ActiveSource.FromSchedule -> triggerHandler.handleEnd(source.scheduleId, source.endTime)
+                ActiveSource.FromQuickSilence -> quickSilenceRepository.revertSilence()
+            }
             manualRefresh.value++
         }
     }

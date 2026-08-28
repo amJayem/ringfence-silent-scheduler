@@ -25,7 +25,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -39,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ringfence.silentscheduler.R
+import com.ringfence.silentscheduler.core.ui.PillSwitch
 
 /**
  * Build-order step 7. Structure and copy match the Claude Design source (header,
@@ -262,7 +262,7 @@ private fun ScheduleRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            Switch(checked = row.schedule.isEnabled, onCheckedChange = { onToggle() })
+            PillSwitch(checked = row.schedule.isEnabled, onCheckedChange = { onToggle() })
         }
     }
 }

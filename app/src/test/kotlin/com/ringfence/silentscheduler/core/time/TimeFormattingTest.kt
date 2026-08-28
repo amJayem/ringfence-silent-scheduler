@@ -6,6 +6,21 @@ import org.junit.Test
 class TimeFormattingTest {
 
     @Test
+    fun `countdown clock under a minute`() {
+        assertEquals("0:09", formatCountdownClock(9))
+    }
+
+    @Test
+    fun `countdown clock under an hour`() {
+        assertEquals("29:58", formatCountdownClock(29 * 60 + 58))
+    }
+
+    @Test
+    fun `countdown clock past an hour includes hours`() {
+        assertEquals("1:29:58", formatCountdownClock(60 * 60 + 29 * 60 + 58))
+    }
+
+    @Test
     fun `minutes only under an hour`() {
         assertEquals("24m", formatDurationMinutes(24))
     }

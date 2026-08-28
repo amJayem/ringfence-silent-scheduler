@@ -20,7 +20,7 @@
 
     <string name="quick_silence_idle_title">Ringfence: Silent Scheduler</string>
     <string name="quick_silence_start_cta">Silent now (30s test)</string>
-    <string name="quick_silence_active_label">Silent — %1$ds left</string>
+    <string name="quick_silence_active_label">Silent — %1$s left</string>
     <string name="quick_silence_unsilence_cta">Un-silence now</string>
 
     <string name="nav_schedules">Schedules</string>

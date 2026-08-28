@@ -25,6 +25,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ringfence.silentscheduler.R
+import com.ringfence.silentscheduler.core.time.formatCountdownClock
 import kotlinx.coroutines.delay
 
 /**
@@ -60,8 +61,8 @@ fun QuickSilenceScreen(
     ) {
         if (state.isActive) {
             Text(
-                text = stringResource(R.string.quick_silence_active_label, remainingSeconds),
-                style = MaterialTheme.typography.headlineSmall
+                text = stringResource(R.string.quick_silence_active_label, formatCountdownClock(remainingSeconds)),
+                style = MaterialTheme.typography.displayLarge
             )
             Spacer(Modifier.height(24.dp))
             OutlinedButton(onClick = { viewModel.cancelEarly() }) {

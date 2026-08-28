@@ -28,3 +28,20 @@ fun formatDurationMinutes(totalMinutes: Long): String {
         else -> "${mins}m"
     }
 }
+
+/**
+ * Live per-second countdown clock, e.g. "29:58" or "1:29:58" once past an hour.
+ * Used by the Quick Silence tab, which ticks every second — [formatDurationMinutes]'s
+ * minute granularity would show a static "29m" for the whole last minute.
+ */
+fun formatCountdownClock(remainingSeconds: Long): String {
+    val totalSeconds = remainingSeconds.coerceAtLeast(0)
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    val seconds = totalSeconds % 60
+    return if (hours > 0) {
+        "%d:%02d:%02d".format(hours, minutes, seconds)
+    } else {
+        "%d:%02d".format(minutes, seconds)
+    }
+}

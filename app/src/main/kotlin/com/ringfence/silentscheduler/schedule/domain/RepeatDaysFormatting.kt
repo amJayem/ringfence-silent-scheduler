@@ -2,10 +2,10 @@ package com.ringfence.silentscheduler.schedule.domain
 
 import java.time.DayOfWeek
 
-private val WEEKDAYS = setOf(
+val WEEKDAYS = setOf(
     DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY
 )
-private val WEEKENDS = setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)
+val WEEKENDS = setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)
 
 /** e.g. all 7 -> "Every day"; Mon-Fri -> "Weekdays"; else "Mon, Wed, Fri" */
 fun Set<DayOfWeek>.toRepeatSummary(): String = when {

@@ -21,6 +21,21 @@ class TimeFormattingTest {
     }
 
     @Test
+    fun `minutesBetween same-day window`() {
+        assertEquals(20, minutesBetween(13 * 60 + 15, 13 * 60 + 35))
+    }
+
+    @Test
+    fun `minutesBetween overnight window wraps past midnight`() {
+        assertEquals(8 * 60, minutesBetween(23 * 60, 7 * 60))
+    }
+
+    @Test
+    fun `minutesBetween equal start and end treated as a full day`() {
+        assertEquals(24 * 60, minutesBetween(9 * 60, 9 * 60))
+    }
+
+    @Test
     fun `minutes only under an hour`() {
         assertEquals("24m", formatDurationMinutes(24))
     }

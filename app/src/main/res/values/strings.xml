@@ -45,6 +45,23 @@
     <string name="dashboard_now_badge">NOW</string>
     <string name="dashboard_silent_status">⊘ SILENT</string>
 
+    <string name="schedule_edit_add_title">Add window</string>
+    <string name="schedule_edit_edit_title">Edit window</string>
+    <string name="schedule_edit_save">Save</string>
+    <string name="schedule_edit_label_section">LABEL</string>
+    <string name="schedule_edit_label_placeholder">Label</string>
+    <string name="schedule_edit_window_section">WINDOW</string>
+    <string name="schedule_edit_start">Start</string>
+    <string name="schedule_edit_end">End</string>
+    <string name="schedule_edit_duration_caption">%1$s of silence</string>
+    <string name="schedule_edit_repeat_section">REPEAT</string>
+    <string name="schedule_edit_every_day">Every day</string>
+    <string name="schedule_edit_weekdays">Weekdays</string>
+    <string name="schedule_edit_weekends">Weekends</string>
+    <string name="schedule_edit_silence_style_section">SILENCE STYLE</string>
+    <string name="schedule_edit_days_required">Select at least one day</string>
+    <string name="schedule_edit_delete">Delete schedule</string>
+
     <string name="settings_title">Settings</string>
     <string name="settings_section_duration">DEFAULT SILENT DURATION</string>
     <string name="settings_duration_caption">Used when you tap Silent now without picking a chip.</string>

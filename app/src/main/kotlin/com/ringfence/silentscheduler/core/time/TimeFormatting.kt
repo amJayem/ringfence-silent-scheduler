@@ -30,6 +30,17 @@ fun formatDurationMinutes(totalMinutes: Long): String {
 }
 
 /**
+ * Length of a start/end window in minutes, handling the overnight case the same
+ * way [com.ringfence.silentscheduler.schedule.domain.RecurringScheduleCalculator]
+ * does: endMinuteOfDay <= startMinuteOfDay means the window crosses midnight, so
+ * the raw (negative or zero) difference wraps by adding a full day.
+ */
+fun minutesBetween(startMinuteOfDay: Int, endMinuteOfDay: Int): Int {
+    val raw = endMinuteOfDay - startMinuteOfDay
+    return if (raw <= 0) raw + 24 * 60 else raw
+}
+
+/**
  * Live per-second countdown clock, e.g. "29:58" or "1:29:58" once past an hour.
  * Used by the Quick Silence tab, which ticks every second — [formatDurationMinutes]'s
  * minute granularity would show a static "29m" for the whole last minute.

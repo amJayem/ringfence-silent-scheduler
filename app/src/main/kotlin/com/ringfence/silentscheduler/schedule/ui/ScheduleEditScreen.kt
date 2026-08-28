@@ -1,5 +1,9 @@
 package com.ringfence.silentscheduler.schedule.ui
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,24 +13,25 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimeInput
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -34,21 +39,40 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.ringfence.silentscheduler.R
+import com.ringfence.silentscheduler.core.ringer.SilenceStyle
+import com.ringfence.silentscheduler.core.time.formatDurationMinutes
 import com.ringfence.silentscheduler.core.time.formatMinuteOfDay
+import com.ringfence.silentscheduler.core.time.minutesBetween
+import com.ringfence.silentscheduler.core.ui.SegmentedControl
 import com.ringfence.silentscheduler.schedule.domain.Schedule
+import com.ringfence.silentscheduler.schedule.domain.WEEKDAYS
+import com.ringfence.silentscheduler.schedule.domain.WEEKENDS
 import java.time.DayOfWeek
 import java.time.LocalTime
 import java.util.UUID
 
+/** Sunday-first order, matching the design's "S M T W T F S" day-chip row. */
+private val WEEK_ORDER = listOf(
+    DayOfWeek.SUNDAY, DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY,
+    DayOfWeek.THURSDAY, DayOfWeek.FRIDAY, DayOfWeek.SATURDAY
+)
+
 /**
- * Build-order step 5. Not yet styled to the Claude Design source — that screen
- * wasn't included in the images provided. Functionally complete (label, start/end
- * time pickers, day-of-week repeat, enabled toggle); revisit visuals once the real
- * design is available (see DESIGN_NOTES.md).
+ * Build-order step 5, restyled against the "Edit window" screen in the Claude
+ * Design source (see DESIGN_NOTES.md): Label field, Start/End time boxes with a
+ * computed duration caption, a Sunday-first day-of-week picker plus quick-select
+ * presets, a per-schedule Silence Style override, and a destructive Delete action.
+ * The "Enabled" toggle from the original build-order version is intentionally gone —
+ * the source design has no such control here; enabling/disabling a schedule is the
+ * Dashboard row switch's job.
  */
 @Composable
 fun ScheduleEditScreen(
@@ -56,7 +80,8 @@ fun ScheduleEditScreen(
     onSave: (Schedule) -> Unit,
     onCancel: () -> Unit,
     onDelete: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    formViewModel: ScheduleFormViewModel = hiltViewModel()
 ) {
     // Keyed on `initial` (not a bare `remember`): the caller navigates here before its
     // schedule list has necessarily loaded from DataStore, so `initial` can arrive
@@ -80,7 +105,12 @@ fun ScheduleEditScreen(
         mutableIntStateOf(initial?.endMinuteOfDay ?: (defaultStartMinuteOfDay + 60) % (24 * 60))
     }
     var repeatDays by remember(initial) { mutableStateOf(initial?.repeatDays ?: emptySet()) }
-    var isEnabled by remember(initial) { mutableStateOf(initial?.isEnabled ?: true) }
+    val isEnabled = remember(initial) { initial?.isEnabled ?: true }
+
+    val defaultSilenceStyle by formViewModel.defaultSilenceStyle.collectAsState()
+    var silenceStyle by remember(initial, defaultSilenceStyle) {
+        mutableStateOf(initial?.silenceStyle ?: defaultSilenceStyle)
+    }
 
     var editingStart by remember { mutableStateOf(false) }
     var editingEnd by remember { mutableStateOf(false) }
@@ -89,98 +119,162 @@ fun ScheduleEditScreen(
         modifier = modifier
             .fillMaxSize()
             .safeDrawingPadding()
-            .padding(16.dp)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 16.dp)
     ) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            TextButton(onClick = onCancel) {
-                Text("Cancel")
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            IconButton(onClick = onCancel) {
+                Icon(painterResource(R.drawable.ic_arrow_back), contentDescription = null)
             }
-            if (initial != null && onDelete != null) {
-                TextButton(onClick = onDelete) {
-                    Text("Delete", color = MaterialTheme.colorScheme.error)
+            Text(
+                text = if (initial == null) {
+                    stringResource(R.string.schedule_edit_add_title)
+                } else {
+                    stringResource(R.string.schedule_edit_edit_title)
+                },
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.weight(1f)
+            )
+            TextButton(
+                enabled = repeatDays.isNotEmpty(),
+                onClick = {
+                    onSave(
+                        Schedule(
+                            id = initial?.id ?: UUID.randomUUID().toString(),
+                            label = label.ifBlank { "Untitled" },
+                            startMinuteOfDay = startMinuteOfDay,
+                            endMinuteOfDay = endMinuteOfDay,
+                            repeatDays = repeatDays,
+                            isEnabled = isEnabled,
+                            silenceStyle = silenceStyle
+                        )
+                    )
                 }
+            ) {
+                Text(stringResource(R.string.schedule_edit_save))
             }
         }
 
-        Text(
-            text = if (initial == null) "Add schedule" else "Edit schedule",
-            style = MaterialTheme.typography.titleMedium
-        )
+        Spacer(Modifier.height(12.dp))
 
-        Spacer(Modifier.height(16.dp))
-
+        SectionLabel(stringResource(R.string.schedule_edit_label_section))
+        Spacer(Modifier.height(8.dp))
         OutlinedTextField(
             value = label,
             onValueChange = { label = it },
-            label = { Text("Label") },
+            placeholder = { Text(stringResource(R.string.schedule_edit_label_placeholder)) },
+            shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth()
         )
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(20.dp))
 
-        Row(modifier = Modifier.fillMaxWidth()) {
-            TextButton(onClick = { editingStart = true }) {
-                Text("Start: ${formatMinuteOfDay(startMinuteOfDay)}")
-            }
-            TextButton(onClick = { editingEnd = true }) {
-                Text("End: ${formatMinuteOfDay(endMinuteOfDay)}")
-            }
+        SectionLabel(stringResource(R.string.schedule_edit_window_section))
+        Spacer(Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            TimeBox(
+                label = stringResource(R.string.schedule_edit_start),
+                time = formatMinuteOfDay(startMinuteOfDay),
+                onClick = { editingStart = true },
+                modifier = Modifier.weight(1f)
+            )
+            TimeBox(
+                label = stringResource(R.string.schedule_edit_end),
+                time = formatMinuteOfDay(endMinuteOfDay),
+                onClick = { editingEnd = true },
+                modifier = Modifier.weight(1f)
+            )
         }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            stringResource(
+                R.string.schedule_edit_duration_caption,
+                formatDurationMinutes(minutesBetween(startMinuteOfDay, endMinuteOfDay).toLong())
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(20.dp))
 
-        Text("Repeat", style = MaterialTheme.typography.labelLarge)
-        Spacer(Modifier.height(4.dp))
-        LazyRow {
-            items(DayOfWeek.entries.toList()) { day ->
-                FilterChip(
-                    modifier = Modifier.padding(end = 4.dp),
+        SectionLabel(stringResource(R.string.schedule_edit_repeat_section))
+        Spacer(Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            WEEK_ORDER.forEach { day ->
+                DayChip(
+                    label = day.name.take(1),
                     selected = day in repeatDays,
                     onClick = {
                         repeatDays = if (day in repeatDays) repeatDays - day else repeatDays + day
                     },
-                    label = { Text(day.name.take(1)) }
+                    modifier = Modifier.weight(1f)
                 )
             }
         }
-
-        Spacer(Modifier.height(16.dp))
-
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Enabled", modifier = Modifier.weight(1f))
-            Switch(checked = isEnabled, onCheckedChange = { isEnabled = it })
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            QuickSelectChip(
+                label = stringResource(R.string.schedule_edit_every_day),
+                selected = repeatDays.size == 7,
+                onClick = { repeatDays = DayOfWeek.entries.toSet() }
+            )
+            QuickSelectChip(
+                label = stringResource(R.string.schedule_edit_weekdays),
+                selected = repeatDays == WEEKDAYS,
+                onClick = { repeatDays = WEEKDAYS }
+            )
+            QuickSelectChip(
+                label = stringResource(R.string.schedule_edit_weekends),
+                selected = repeatDays == WEEKENDS,
+                onClick = { repeatDays = WEEKENDS }
+            )
         }
-
-        Spacer(Modifier.height(24.dp))
-
         if (repeatDays.isEmpty()) {
+            Spacer(Modifier.height(6.dp))
             Text(
-                "Select at least one day",
+                stringResource(R.string.schedule_edit_days_required),
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodySmall
             )
-            Spacer(Modifier.height(4.dp))
         }
 
-        Button(
-            onClick = {
-                onSave(
-                    Schedule(
-                        id = initial?.id ?: UUID.randomUUID().toString(),
-                        label = label.ifBlank { "Untitled" },
-                        startMinuteOfDay = startMinuteOfDay,
-                        endMinuteOfDay = endMinuteOfDay,
-                        repeatDays = repeatDays,
-                        isEnabled = isEnabled
-                    )
-                )
+        Spacer(Modifier.height(20.dp))
+
+        SectionLabel(stringResource(R.string.schedule_edit_silence_style_section))
+        Spacer(Modifier.height(8.dp))
+        SegmentedControl(
+            options = listOf(SilenceStyle.FULL_SILENT, SilenceStyle.VIBRATE_ONLY),
+            selected = silenceStyle,
+            labelFor = { style ->
+                if (style == SilenceStyle.FULL_SILENT) {
+                    stringResource(R.string.settings_silence_style_full)
+                } else {
+                    stringResource(R.string.settings_silence_style_vibrate)
+                }
             },
-            enabled = repeatDays.isNotEmpty(),
-            shape = RoundedCornerShape(percent = 50),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Save")
+            onSelect = { silenceStyle = it }
+        )
+
+        if (initial != null && onDelete != null) {
+            Spacer(Modifier.height(24.dp))
+            OutlinedButton(
+                onClick = onDelete,
+                shape = RoundedCornerShape(percent = 50),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(stringResource(R.string.schedule_edit_delete))
+            }
         }
+
+        Spacer(Modifier.height(24.dp))
     }
 
     if (editingStart) {
@@ -195,6 +289,85 @@ fun ScheduleEditScreen(
             initialMinuteOfDay = endMinuteOfDay,
             onDismiss = { editingEnd = false },
             onConfirm = { endMinuteOfDay = it; editingEnd = false }
+        )
+    }
+}
+
+@Composable
+private fun SectionLabel(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+}
+
+@Composable
+private fun TimeBox(
+    label: String,
+    time: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = Color.Transparent,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        modifier = modifier.clickable(onClick = onClick)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(4.dp))
+            Text(time, style = MaterialTheme.typography.titleLarge)
+        }
+    }
+}
+
+@Composable
+private fun DayChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .clip(CircleShape)
+            .background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent)
+            .border(
+                width = 1.dp,
+                color = if (selected) Color.Transparent else MaterialTheme.colorScheme.outline,
+                shape = CircleShape
+            )
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelLarge,
+            color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+        )
+    }
+}
+
+@Composable
+private fun QuickSelectChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(percent = 50),
+        color = if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
+        border = BorderStroke(1.dp, if (selected) Color.Transparent else MaterialTheme.colorScheme.outline),
+        modifier = Modifier.clickable(onClick = onClick)
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelLarge,
+            color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
         )
     }
 }

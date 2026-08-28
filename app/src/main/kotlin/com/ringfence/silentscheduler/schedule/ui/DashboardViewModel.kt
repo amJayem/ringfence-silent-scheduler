@@ -2,9 +2,9 @@ package com.ringfence.silentscheduler.schedule.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ringfence.silentscheduler.core.ringer.SilenceStyle
 import com.ringfence.silentscheduler.core.time.formatDurationMinutes
 import com.ringfence.silentscheduler.core.time.formatMinuteOfDay
-import com.ringfence.silentscheduler.quicksilence.domain.DEFAULT_QUICK_SILENCE_DURATION_MILLIS
 import com.ringfence.silentscheduler.quicksilence.domain.QuickSilenceRepository
 import com.ringfence.silentscheduler.quicksilence.domain.QuickSilenceState
 import com.ringfence.silentscheduler.schedule.data.ScheduleTriggerHandler
@@ -13,12 +13,15 @@ import com.ringfence.silentscheduler.schedule.domain.Schedule
 import com.ringfence.silentscheduler.schedule.domain.ScheduleOccurrence
 import com.ringfence.silentscheduler.schedule.domain.ScheduleRepository
 import com.ringfence.silentscheduler.schedule.domain.toRepeatSummary
+import com.ringfence.silentscheduler.settings.domain.AppSettings
+import com.ringfence.silentscheduler.settings.domain.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -65,7 +68,8 @@ data class DashboardUiState(
 class DashboardViewModel @Inject constructor(
     private val repository: ScheduleRepository,
     private val quickSilenceRepository: QuickSilenceRepository,
-    private val triggerHandler: ScheduleTriggerHandler
+    private val triggerHandler: ScheduleTriggerHandler,
+    private val settingsRepository: SettingsRepository
 ) : ViewModel() {
 
     // Recomputes derived state (countdowns, NOW badges) even when nothing in
@@ -87,13 +91,19 @@ class DashboardViewModel @Inject constructor(
     val uiState: StateFlow<DashboardUiState> = combine(
         repository.observeSchedules(),
         quickSilenceRepository.observeState(),
+        settingsRepository.observeSettings(),
         ticker,
         manualRefresh
-    ) { schedules, quickSilence, _, _ ->
-        buildState(schedules, quickSilence, LocalDateTime.now())
+    ) { schedules, quickSilence, settings, _, _ ->
+        buildState(schedules, quickSilence, settings, LocalDateTime.now())
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DashboardUiState())
 
-    private fun buildState(schedules: List<Schedule>, quickSilence: QuickSilenceState, now: LocalDateTime): DashboardUiState {
+    private fun buildState(
+        schedules: List<Schedule>,
+        quickSilence: QuickSilenceState,
+        settings: AppSettings,
+        now: LocalDateTime
+    ): DashboardUiState {
         val dayLabel = now.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())
 
         val occurrencesById: Map<String, ScheduleOccurrence> = schedules
@@ -144,6 +154,7 @@ class DashboardViewModel @Inject constructor(
             }
         }
 
+        val styleWord = if (settings.silenceStyle == SilenceStyle.VIBRATE_ONLY) "vibrate" else "silent"
         val rows = schedules.map { schedule ->
             val occ = occurrencesById[schedule.id]
             val isActiveNow = occ != null && !occ.start.isAfter(now) && occ.end.isAfter(now)
@@ -156,7 +167,7 @@ class DashboardViewModel @Inject constructor(
             ScheduleRowUiState(
                 schedule = schedule,
                 timeRangeText = "${formatMinuteOfDay(schedule.startMinuteOfDay)} – ${formatMinuteOfDay(schedule.endMinuteOfDay)}",
-                repeatText = schedule.repeatDays.toRepeatSummary(),
+                repeatText = "${schedule.repeatDays.toRepeatSummary()} · $styleWord",
                 caption = caption,
                 isActiveNow = isActiveNow
             )
@@ -189,6 +200,9 @@ class DashboardViewModel @Inject constructor(
     }
 
     fun silentNow() {
-        viewModelScope.launch { quickSilenceRepository.startSilence(DEFAULT_QUICK_SILENCE_DURATION_MILLIS) }
+        viewModelScope.launch {
+            val minutes = settingsRepository.observeSettings().first().defaultDurationMinutes
+            quickSilenceRepository.startSilence(minutes * 60_000L)
+        }
     }
 }

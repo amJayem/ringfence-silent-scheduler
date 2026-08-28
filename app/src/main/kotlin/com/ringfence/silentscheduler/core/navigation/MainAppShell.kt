@@ -27,7 +27,7 @@ import com.ringfence.silentscheduler.schedule.domain.Schedule
 import com.ringfence.silentscheduler.schedule.ui.DashboardScreen
 import com.ringfence.silentscheduler.schedule.ui.ScheduleEditScreen
 import com.ringfence.silentscheduler.schedule.ui.ScheduleFormViewModel
-import com.ringfence.silentscheduler.settings.ui.SettingsPlaceholderScreen
+import com.ringfence.silentscheduler.settings.ui.SettingsScreen
 
 private object Routes {
     const val DASHBOARD = "dashboard"
@@ -90,7 +90,9 @@ fun MainAppShell() {
                 )
             }
             composable(Routes.QUICK_SILENCE) { QuickSilenceScreen() }
-            composable(Routes.SETTINGS) { SettingsPlaceholderScreen() }
+            composable(Routes.SETTINGS) {
+                SettingsScreen(onBack = { navController.navigateToTab(Routes.DASHBOARD) })
+            }
             composable(Routes.SCHEDULE_ADD) {
                 val formViewModel: ScheduleFormViewModel = hiltViewModel()
                 ScheduleEditScreen(

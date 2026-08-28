@@ -28,7 +28,7 @@ class RingerModeController @Inject constructor(
         audioManager.ringerMode = mode
     }
 
-    fun silence() {
-        audioManager.ringerMode = AudioManager.RINGER_MODE_SILENT
+    fun silence(style: SilenceStyle) {
+        audioManager.ringerMode = style.toRingerMode()
     }
 }

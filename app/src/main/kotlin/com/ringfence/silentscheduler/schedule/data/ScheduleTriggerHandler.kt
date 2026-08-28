@@ -6,7 +6,9 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import com.ringfence.silentscheduler.core.notification.SilenceNotifier
 import com.ringfence.silentscheduler.core.ringer.RingerModeController
+import com.ringfence.silentscheduler.settings.domain.SettingsRepository
 import kotlinx.coroutines.flow.first
 import java.time.LocalDateTime
 import javax.inject.Inject
@@ -29,7 +31,9 @@ class ScheduleTriggerHandler @Inject constructor(
     private val repository: ScheduleRepositoryImpl,
     private val ringerModeController: RingerModeController,
     private val alarmScheduler: ScheduleAlarmScheduler,
-    private val preferencesDataStore: DataStore<Preferences>
+    private val preferencesDataStore: DataStore<Preferences>,
+    private val settingsRepository: SettingsRepository,
+    private val silenceNotifier: SilenceNotifier
 ) {
     /**
      * Idempotent: if this schedule already has a stored previous-mode snapshot, it's
@@ -46,9 +50,11 @@ class ScheduleTriggerHandler @Inject constructor(
             Log.i(TAG, "START $scheduleId: already active, skipping duplicate silence")
             return
         }
+        val settings = settingsRepository.observeSettings().first()
         val modeBeforeSilencing = ringerModeController.currentMode
         preferencesDataStore.edit { prefs -> prefs[key] = modeBeforeSilencing }
-        ringerModeController.silence()
+        ringerModeController.silence(settings.silenceStyle)
+        silenceNotifier.notifySilenceStarted(scheduleLabel(scheduleId), settings.notificationStyle)
         Log.i(TAG, "START $scheduleId: captured previous mode=$modeBeforeSilencing, now SILENT")
     }
 
@@ -57,6 +63,8 @@ class ScheduleTriggerHandler @Inject constructor(
             ?: AudioManager.RINGER_MODE_NORMAL
         ringerModeController.setMode(previousMode)
         preferencesDataStore.edit { prefs -> prefs.remove(previousModeKey(scheduleId)) }
+        val notificationStyle = settingsRepository.observeSettings().first().notificationStyle
+        silenceNotifier.notifySilenceEnded(scheduleLabel(scheduleId), notificationStyle)
         Log.i(TAG, "END $scheduleId: restored mode=$previousMode")
 
         // Cancels any still-pending natural end alarm for today's occurrence — matters
@@ -87,6 +95,9 @@ class ScheduleTriggerHandler @Inject constructor(
         preferencesDataStore.edit { prefs -> prefs.remove(key) }
         Log.i(TAG, "revertIfCurrentlySilencing $scheduleId: restored mode=$previousMode")
     }
+
+    private suspend fun scheduleLabel(scheduleId: String): String =
+        repository.observeSchedules().first().find { it.id == scheduleId }?.label ?: "Schedule"
 
     private fun previousModeKey(scheduleId: String) = intPreferencesKey("schedule_prev_ringer_mode_$scheduleId")
 

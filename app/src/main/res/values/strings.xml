@@ -19,7 +19,7 @@
     <string name="dnd_access_declined_placeholder">DND access not granted.\nOpen Settings from here to allow it later.</string>
 
     <string name="quick_silence_idle_title">Ringfence: Silent Scheduler</string>
-    <string name="quick_silence_start_cta">Silent now (30s test)</string>
+    <string name="quick_silence_start_cta">Silent now</string>
     <string name="quick_silence_active_label">Silent — %1$s left</string>
     <string name="quick_silence_unsilence_cta">Un-silence now</string>
 
@@ -40,5 +40,40 @@
     <string name="dashboard_now_badge">NOW</string>
     <string name="dashboard_silent_status">⊘ SILENT</string>
 
-    <string name="settings_placeholder">Settings — coming in build order step 8</string>
+    <string name="settings_title">Settings</string>
+    <string name="settings_section_duration">DEFAULT SILENT DURATION</string>
+    <string name="settings_duration_caption">Used when you tap Silent now without picking a chip.</string>
+    <string name="settings_duration_15m">15m</string>
+    <string name="settings_duration_30m">30m</string>
+    <string name="settings_duration_1h">1h</string>
+    <string name="settings_duration_2h">2h</string>
+    <string name="settings_section_silence_style">SILENCE STYLE</string>
+    <string name="settings_silence_style_full">Full silent</string>
+    <string name="settings_silence_style_vibrate">Vibrate only</string>
+    <string name="settings_section_notification_style">NOTIFICATION STYLE</string>
+    <string name="settings_notification_banner_title">Banner</string>
+    <string name="settings_notification_banner_subtitle">Notify when silence starts and ends</string>
+    <string name="settings_notification_silent_log_title">Silent log</string>
+    <string name="settings_notification_silent_log_subtitle">No alert, visible in history only</string>
+    <string name="settings_notification_none_title">None</string>
+    <string name="settings_notification_none_subtitle">Never notify</string>
+    <string name="settings_section_appearance">APPEARANCE</string>
+    <string name="settings_appearance_light">Light</string>
+    <string name="settings_appearance_dark">Dark</string>
+    <string name="settings_appearance_system">System</string>
+    <string name="settings_appearance_caption_system_dark">System default detected: Dark. Override any time.</string>
+    <string name="settings_appearance_caption_system_light">System default detected: Light. Override any time.</string>
+    <string name="settings_dnd_status_title">Do Not Disturb access</string>
+    <string name="settings_dnd_status_granted">Granted</string>
+    <string name="settings_dnd_status_required">Required</string>
+    <string name="settings_dnd_open_settings">Open settings</string>
+
+    <string name="notification_channel_banner_name">Silence alerts</string>
+    <string name="notification_channel_banner_desc">Notifies when a silence window starts and ends</string>
+    <string name="notification_channel_silent_log_name">Silence log</string>
+    <string name="notification_channel_silent_log_desc">Silent record of silence start and end, no alert</string>
+    <string name="notification_silence_started_title">%1$s — Silent</string>
+    <string name="notification_silence_started_text">Sound is muted until it ends automatically.</string>
+    <string name="notification_silence_ended_title">%1$s — Sound restored</string>
+    <string name="notification_silence_ended_text">Your ringer is back to normal.</string>
 </resources>

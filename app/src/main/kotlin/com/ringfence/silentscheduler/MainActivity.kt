@@ -6,6 +6,7 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -36,6 +37,7 @@ import com.ringfence.silentscheduler.core.theme.RingfenceTheme
 import com.ringfence.silentscheduler.onboarding.DndAccessScreen
 import com.ringfence.silentscheduler.onboarding.ExactAlarmAccessScreen
 import com.ringfence.silentscheduler.onboarding.OnboardingViewModel
+import com.ringfence.silentscheduler.settings.ui.SettingsViewModel
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -44,7 +46,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            RingfenceTheme {
+            val settingsViewModel: SettingsViewModel = hiltViewModel()
+            val settings by settingsViewModel.settings.collectAsState()
+            RingfenceTheme(useDarkTheme = settings.themeOverride.resolveIsDark(isSystemInDarkTheme())) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background

@@ -56,6 +56,7 @@ fun DashboardScreen(
     onAddSchedule: () -> Unit,
     onEditSchedule: (String) -> Unit,
     onOpenSettings: () -> Unit,
+    onSilentNow: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
@@ -94,7 +95,7 @@ fun DashboardScreen(
             StatusCard(
                 state = state,
                 onEndNow = { viewModel.endActiveNow() },
-                onSilentNow = { viewModel.silentNow() }
+                onSilentNow = onSilentNow
             )
 
             Spacer(Modifier.height(24.dp))

@@ -21,7 +21,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -204,13 +203,6 @@ class DashboardViewModel @Inject constructor(
                 ActiveSource.FromQuickSilence -> quickSilenceRepository.revertSilence()
             }
             manualRefresh.value++
-        }
-    }
-
-    fun silentNow() {
-        viewModelScope.launch {
-            val minutes = settingsRepository.observeSettings().first().defaultDurationMinutes
-            quickSilenceRepository.startSilence(minutes * 60_000L)
         }
     }
 }

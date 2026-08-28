@@ -4,6 +4,6 @@ import kotlinx.coroutines.flow.Flow
 
 interface QuickSilenceRepository {
     fun observeState(): Flow<QuickSilenceState>
-    suspend fun startSilence(durationMillis: Long)
+    suspend fun startSilence(durationMinutes: Int)
     suspend fun revertSilence()
 }

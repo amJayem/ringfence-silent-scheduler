@@ -44,11 +44,11 @@ class QuickSilenceRepositoryImpl @Inject constructor(
         )
     }
 
-    override suspend fun startSilence(durationMillis: Long) {
+    override suspend fun startSilence(durationMinutes: Int) {
         val settings = settingsRepository.observeSettings().first()
         val previousMode = ringerModeController.currentMode
         val startTime = System.currentTimeMillis()
-        val endTime = startTime + durationMillis
+        val endTime = startTime + durationMinutes * 60_000L
         dataStore.edit { prefs ->
             prefs[Keys.IS_ACTIVE] = true
             prefs[Keys.START_TIME] = startTime

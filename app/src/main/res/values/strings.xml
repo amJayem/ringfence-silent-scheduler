@@ -18,10 +18,15 @@
 
     <string name="dnd_access_declined_placeholder">DND access not granted.\nOpen Settings from here to allow it later.</string>
 
-    <string name="quick_silence_idle_title">Ringfence: Silent Scheduler</string>
-    <string name="quick_silence_start_cta">Silent now</string>
-    <string name="quick_silence_active_label">Silent — %1$s left</string>
-    <string name="quick_silence_unsilence_cta">Un-silence now</string>
+    <string name="quick_silence_sheet_title">Silent now</string>
+    <string name="quick_silence_sheet_body">Sound comes back automatically. This does not touch your recurring schedules.</string>
+    <string name="quick_silence_until_short">til %1$s</string>
+    <string name="quick_silence_custom_label">Custom</string>
+    <string name="quick_silence_custom_until">Silent until %1$s</string>
+    <string name="quick_silence_minutes_format">%1$dm</string>
+    <string name="quick_silence_decrease_cd">Decrease duration</string>
+    <string name="quick_silence_increase_cd">Increase duration</string>
+    <string name="quick_silence_start_custom_cta">Start custom silence</string>
 
     <string name="nav_schedules">Schedules</string>
     <string name="nav_silent_now">Silent now</string>

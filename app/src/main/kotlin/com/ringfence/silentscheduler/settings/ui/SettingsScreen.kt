@@ -42,7 +42,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -58,6 +57,7 @@ import com.ringfence.silentscheduler.core.ringer.SilenceStyle
 import com.ringfence.silentscheduler.core.theme.BackgroundDark
 import com.ringfence.silentscheduler.core.theme.BackgroundLight
 import com.ringfence.silentscheduler.core.theme.ThemeOverride
+import com.ringfence.silentscheduler.core.ui.SegmentedControl
 import com.ringfence.silentscheduler.settings.domain.AVAILABLE_DURATION_MINUTES
 
 /**
@@ -271,41 +271,6 @@ private fun SettingsSection(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-        }
-    }
-}
-
-@Composable
-private fun <T> SegmentedControl(
-    options: List<T>,
-    selected: T,
-    labelFor: @Composable (T) -> String,
-    onSelect: (T) -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(percent = 50))
-            .background(MaterialTheme.colorScheme.secondaryContainer)
-            .padding(4.dp)
-    ) {
-        options.forEach { option ->
-            val isSelected = option == selected
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(percent = 50))
-                    .background(if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent)
-                    .clickable { onSelect(option) }
-                    .padding(vertical = 10.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = labelFor(option),
-                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                    style = MaterialTheme.typography.labelLarge
-                )
-            }
         }
     }
 }

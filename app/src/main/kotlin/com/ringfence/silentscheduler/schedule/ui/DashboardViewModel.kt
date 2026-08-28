@@ -51,6 +51,7 @@ data class ActiveCardState(
     val label: String,
     val remainingText: String,
     val untilText: String,
+    val progressFraction: Float,
     val source: ActiveSource
 )
 
@@ -121,20 +122,27 @@ class DashboardViewModel @Inject constructor(
             quickSilence.isActive -> {
                 val endTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(quickSilence.endTimeMillis), ZoneId.systemDefault())
                 val endMinuteOfDay = endTime.hour * 60 + endTime.minute
+                val nowMillis = System.currentTimeMillis()
+                val totalMillis = (quickSilence.endTimeMillis - quickSilence.startTimeMillis).coerceAtLeast(1)
+                val remainingMillis = (quickSilence.endTimeMillis - nowMillis).coerceAtLeast(0)
                 ActiveCardState(
                     label = "Quick silence",
                     remainingText = formatDurationMinutes(Duration.between(now, endTime).toMinutes()),
                     untilText = "Quick silence · until ${formatMinuteOfDay(endMinuteOfDay)}",
+                    progressFraction = (remainingMillis.toFloat() / totalMillis).coerceIn(0f, 1f),
                     source = ActiveSource.FromQuickSilence
                 )
             }
             activeSchedule != null -> {
                 val occ = occurrencesById.getValue(activeSchedule.id)
                 val endMinuteOfDay = occ.end.hour * 60 + occ.end.minute
+                val totalMinutes = Duration.between(occ.start, occ.end).toMinutes().coerceAtLeast(1)
+                val remainingMinutes = Duration.between(now, occ.end).toMinutes().coerceAtLeast(0)
                 ActiveCardState(
                     label = activeSchedule.label,
-                    remainingText = formatDurationMinutes(Duration.between(now, occ.end).toMinutes()),
+                    remainingText = formatDurationMinutes(remainingMinutes),
                     untilText = "${activeSchedule.label} · until ${formatMinuteOfDay(endMinuteOfDay)}",
+                    progressFraction = (remainingMinutes.toFloat() / totalMinutes).coerceIn(0f, 1f),
                     source = ActiveSource.FromSchedule(activeSchedule.id, occ.end)
                 )
             }

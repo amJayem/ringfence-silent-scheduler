@@ -22,6 +22,7 @@ private const val QUICK_SILENCE_LABEL = "Quick silence"
 
 private object Keys {
     val IS_ACTIVE = booleanPreferencesKey("quick_silence_is_active")
+    val START_TIME = longPreferencesKey("quick_silence_start_time")
     val END_TIME = longPreferencesKey("quick_silence_end_time")
     val PREVIOUS_RINGER_MODE = intPreferencesKey("quick_silence_previous_ringer_mode")
 }
@@ -38,6 +39,7 @@ class QuickSilenceRepositoryImpl @Inject constructor(
     override fun observeState(): Flow<QuickSilenceState> = dataStore.data.map { prefs ->
         QuickSilenceState(
             isActive = prefs[Keys.IS_ACTIVE] ?: false,
+            startTimeMillis = prefs[Keys.START_TIME] ?: 0L,
             endTimeMillis = prefs[Keys.END_TIME] ?: 0L
         )
     }
@@ -45,9 +47,11 @@ class QuickSilenceRepositoryImpl @Inject constructor(
     override suspend fun startSilence(durationMillis: Long) {
         val settings = settingsRepository.observeSettings().first()
         val previousMode = ringerModeController.currentMode
-        val endTime = System.currentTimeMillis() + durationMillis
+        val startTime = System.currentTimeMillis()
+        val endTime = startTime + durationMillis
         dataStore.edit { prefs ->
             prefs[Keys.IS_ACTIVE] = true
+            prefs[Keys.START_TIME] = startTime
             prefs[Keys.END_TIME] = endTime
             prefs[Keys.PREVIOUS_RINGER_MODE] = previousMode
         }

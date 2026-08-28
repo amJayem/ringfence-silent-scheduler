@@ -1,9 +1,11 @@
 package com.ringfence.silentscheduler.schedule.ui
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -31,6 +33,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -156,13 +162,16 @@ private fun StatusCard(
             val active = state.active
             when {
                 active != null -> {
-                    Text(
-                        stringResource(R.string.dashboard_silent_status),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                    ProgressRing(progressFraction = active.progressFraction) {
+                        Text(
+                            stringResource(R.string.dashboard_silent_status),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(active.remainingText, style = MaterialTheme.typography.displayLarge)
+                    }
                     Spacer(Modifier.height(8.dp))
-                    Text(active.remainingText, style = MaterialTheme.typography.displayLarge)
                     Text(
                         active.untilText,
                         style = MaterialTheme.typography.bodyMedium,
@@ -210,6 +219,42 @@ private fun StatusCard(
                 }
             }
         }
+    }
+}
+
+/** Accent arc over a faint full-circle track, depleting as [progressFraction] (time remaining) drops to 0. */
+@Composable
+private fun ProgressRing(
+    progressFraction: Float,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    val trackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
+    val accentColor = MaterialTheme.colorScheme.primary
+    Box(modifier = Modifier.size(180.dp), contentAlignment = Alignment.Center) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val strokeWidth = 10.dp.toPx()
+            val arcSize = Size(size.width - strokeWidth, size.height - strokeWidth)
+            val topLeft = Offset(strokeWidth / 2, strokeWidth / 2)
+            drawArc(
+                color = trackColor,
+                startAngle = -90f,
+                sweepAngle = 360f,
+                useCenter = false,
+                topLeft = topLeft,
+                size = arcSize,
+                style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+            )
+            drawArc(
+                color = accentColor,
+                startAngle = -90f,
+                sweepAngle = 360f * progressFraction,
+                useCenter = false,
+                topLeft = topLeft,
+                size = arcSize,
+                style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+            )
+        }
+        Column(horizontalAlignment = Alignment.CenterHorizontally, content = content)
     }
 }
 

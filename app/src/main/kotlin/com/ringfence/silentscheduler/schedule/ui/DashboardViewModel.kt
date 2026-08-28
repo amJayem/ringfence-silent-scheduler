@@ -13,8 +13,6 @@ import com.ringfence.silentscheduler.schedule.domain.Schedule
 import com.ringfence.silentscheduler.schedule.domain.ScheduleOccurrence
 import com.ringfence.silentscheduler.schedule.domain.ScheduleRepository
 import com.ringfence.silentscheduler.schedule.domain.toRepeatSummary
-import com.ringfence.silentscheduler.settings.domain.AppSettings
-import com.ringfence.silentscheduler.settings.domain.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -68,8 +66,7 @@ data class DashboardUiState(
 class DashboardViewModel @Inject constructor(
     private val repository: ScheduleRepository,
     private val quickSilenceRepository: QuickSilenceRepository,
-    private val triggerHandler: ScheduleTriggerHandler,
-    private val settingsRepository: SettingsRepository
+    private val triggerHandler: ScheduleTriggerHandler
 ) : ViewModel() {
 
     // Recomputes derived state (countdowns, NOW badges) even when nothing in
@@ -91,17 +88,15 @@ class DashboardViewModel @Inject constructor(
     val uiState: StateFlow<DashboardUiState> = combine(
         repository.observeSchedules(),
         quickSilenceRepository.observeState(),
-        settingsRepository.observeSettings(),
         ticker,
         manualRefresh
-    ) { schedules, quickSilence, settings, _, _ ->
-        buildState(schedules, quickSilence, settings, LocalDateTime.now())
+    ) { schedules, quickSilence, _, _ ->
+        buildState(schedules, quickSilence, LocalDateTime.now())
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DashboardUiState())
 
     private fun buildState(
         schedules: List<Schedule>,
         quickSilence: QuickSilenceState,
-        settings: AppSettings,
         now: LocalDateTime
     ): DashboardUiState {
         val dayLabel = now.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())
@@ -161,7 +156,6 @@ class DashboardViewModel @Inject constructor(
             }
         }
 
-        val styleWord = if (settings.silenceStyle == SilenceStyle.VIBRATE_ONLY) "vibrate" else "silent"
         val rows = schedules.map { schedule ->
             val occ = occurrencesById[schedule.id]
             val isActiveNow = occ != null && !occ.start.isAfter(now) && occ.end.isAfter(now)
@@ -171,6 +165,7 @@ class DashboardViewModel @Inject constructor(
                 isActiveNow -> "NOW · Silent until ${formatMinuteOfDay(schedule.endMinuteOfDay)}"
                 else -> "Next in ${formatDurationMinutes(Duration.between(now, occ.start).toMinutes())}"
             }
+            val styleWord = if (schedule.silenceStyle == SilenceStyle.VIBRATE_ONLY) "vibrate" else "silent"
             ScheduleRowUiState(
                 schedule = schedule,
                 timeRangeText = "${formatMinuteOfDay(schedule.startMinuteOfDay)} – ${formatMinuteOfDay(schedule.endMinuteOfDay)}",

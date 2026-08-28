@@ -17,4 +17,8 @@ message ScheduleProto {
   int32 end_minute_of_day = 4;
   repeated int32 repeat_days = 5; // java.time.DayOfWeek values: 1=Monday..7=Sunday
   bool is_enabled = 6;
+  // 0 = FULL_SILENT, 1 = VIBRATE_ONLY (see SilenceStyle enum). Proto3's int32 default
+  // of 0 means schedules saved before this field existed load as FULL_SILENT with no
+  // migration needed.
+  int32 silence_style = 7;
 }

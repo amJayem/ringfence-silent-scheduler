@@ -1,5 +1,6 @@
 package com.ringfence.silentscheduler.schedule.data
 
+import com.ringfence.silentscheduler.core.ringer.SilenceStyle
 import com.ringfence.silentscheduler.schedule.data.proto.ScheduleProto
 import com.ringfence.silentscheduler.schedule.data.proto.scheduleProto
 import com.ringfence.silentscheduler.schedule.domain.Schedule
@@ -11,7 +12,8 @@ fun ScheduleProto.toDomain(): Schedule = Schedule(
     startMinuteOfDay = startMinuteOfDay,
     endMinuteOfDay = endMinuteOfDay,
     repeatDays = repeatDaysList.map { DayOfWeek.of(it) }.toSet(),
-    isEnabled = isEnabled
+    isEnabled = isEnabled,
+    silenceStyle = if (silenceStyle == 1) SilenceStyle.VIBRATE_ONLY else SilenceStyle.FULL_SILENT
 )
 
 fun Schedule.toProto(): ScheduleProto {
@@ -23,5 +25,6 @@ fun Schedule.toProto(): ScheduleProto {
         endMinuteOfDay = domain.endMinuteOfDay
         repeatDays.addAll(domain.repeatDays.map { it.value })
         isEnabled = domain.isEnabled
+        silenceStyle = if (domain.silenceStyle == SilenceStyle.VIBRATE_ONLY) 1 else 0
     }
 }

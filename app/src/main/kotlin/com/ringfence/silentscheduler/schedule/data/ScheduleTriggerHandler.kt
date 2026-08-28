@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import com.ringfence.silentscheduler.core.notification.SilenceNotifier
 import com.ringfence.silentscheduler.core.ringer.RingerModeController
+import com.ringfence.silentscheduler.core.ringer.SilenceStyle
 import com.ringfence.silentscheduler.settings.domain.SettingsRepository
 import kotlinx.coroutines.flow.first
 import java.time.LocalDateTime
@@ -50,11 +51,12 @@ class ScheduleTriggerHandler @Inject constructor(
             Log.i(TAG, "START $scheduleId: already active, skipping duplicate silence")
             return
         }
-        val settings = settingsRepository.observeSettings().first()
+        val schedule = repository.observeSchedules().first().find { it.id == scheduleId }
+        val notificationStyle = settingsRepository.observeSettings().first().notificationStyle
         val modeBeforeSilencing = ringerModeController.currentMode
         preferencesDataStore.edit { prefs -> prefs[key] = modeBeforeSilencing }
-        ringerModeController.silence(settings.silenceStyle)
-        silenceNotifier.notifySilenceStarted(scheduleLabel(scheduleId), settings.notificationStyle)
+        ringerModeController.silence(schedule?.silenceStyle ?: SilenceStyle.FULL_SILENT)
+        silenceNotifier.notifySilenceStarted(schedule?.label ?: "Schedule", notificationStyle)
         Log.i(TAG, "START $scheduleId: captured previous mode=$modeBeforeSilencing, now SILENT")
     }
 

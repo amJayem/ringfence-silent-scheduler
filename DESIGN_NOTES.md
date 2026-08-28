@@ -17,10 +17,11 @@ literal copy to ship.
 
 - Dashboard — light and dark
 - Onboarding — Do Not Disturb access request
-- Settings — dark only (default duration, silence style, notifications, theme override)
+- Settings — light and dark (default duration, silence style, notifications, theme override)
+- Add/Edit Schedule ("Edit window") — light
+- "Silent now" — a bottom sheet (not a full screen), light and dark
 
-Not yet seen: **Add/Edit Schedule screen** (needed for step 5), light-mode Settings.
-Ask for these before building step 5 / finishing step 8.
+All screens the build order calls for have now been seen at least once.
 
 ## Layout & components (confirmed from source)
 
@@ -28,7 +29,10 @@ Ask for these before building step 5 / finishing step 8.
 - Cards: 24dp corner radius.
 - Buttons: full pill shape (fully rounded), filled with the accent color for primary
   actions ("Silent now" / "End silence now", "Allow Do Not Disturb access").
-- Switches: outlined-track style, filled thumb+track in accent color when on.
+- Switches: flat filled-thumb toggle, no Material default checkmark icon — outlined
+  track when off, filled accent track + white thumb when on. The stock M3 `Switch`
+  didn't match this (checkmark-in-thumb, different outline treatment, especially
+  noticeable in light mode), so it's a custom composable: `core/ui/PillSwitch.kt`.
 - FAB: 60dp, circular, accent-colored, bottom-right, overlapping the schedule list,
   for adding a new schedule window.
 - Bottom nav: 3 items (Schedules, Silent now, Settings); the active item sits inside an
@@ -81,11 +85,37 @@ access / runs on a schedule not in the background / always reverts), primary pil
 "Allow Do Not Disturb access", secondary text-only "Not now" below it. Matches
 CLAUDE.md's requirement to explain before requesting the permission.
 
-**Settings (dark)**: back arrow + "Settings" title. "DEFAULT SILENT DURATION" segmented
-control with exactly **15m / 30m / 1h / 2h** (confirmed — not seconds), caption "Used
-when you tap Silent now without picking a chip." "SILENCE STYLE" two-option toggle
-(Full silent / Vibrate only). "NOTIFICATION STYLE" radio list: Banner ("Notify when
-silence starts and ends"), Silent log ("No alert, visible in history only"), None
-("Never notify"). "APPEARANCE" 3-way Light/Dark/System swatch picker with caption
-("System default detected: Dark. Override any time."). Bottom: a "Do Not Disturb
-access" status row with a granted/required indicator.
+**Settings (light + dark)**: back arrow + "Settings" title. "DEFAULT SILENT DURATION"
+segmented control with exactly **15m / 30m / 1h / 2h** (confirmed — not seconds),
+caption "Used when you tap Silent now without picking a chip." "SILENCE STYLE"
+two-option toggle (Full silent / Vibrate only) — this is the *default* used for new
+schedules and Quick Silence; each schedule can override it individually (see Add/Edit
+Schedule below). "NOTIFICATION STYLE" radio list: Banner ("Notify when silence starts
+and ends"), Silent log ("No alert, visible in history only"), None ("Never notify").
+"APPEARANCE" 3-way Light/Dark/System swatch picker with caption ("System default
+detected: Dark. Override any time."). Bottom: a "Do Not Disturb access" status row
+with a granted/required indicator. Layout is identical across themes; only color
+tokens swap.
+
+**Add/Edit Schedule ("Edit window")**: back chevron + title ("Add window" / "Edit
+window") + a "Save" text button (accent color) in the header row — no full-width Save
+button at the bottom. "LABEL" section: a single bordered text field. "WINDOW" section:
+Start/End side-by-side bordered boxes (tap opens a time picker), with a computed
+duration caption below ("20m of silence"). "REPEAT" section: a Sunday-first row of 7
+circular day chips (S M T W T F S — accent-filled when selected) plus "Every
+day"/"Weekdays"/"Weekends" quick-select pill presets below. "SILENCE STYLE": the same
+segmented control as Settings, but scoped to this one schedule (defaults to the
+Settings-wide value for a brand-new schedule). No "Enabled" toggle here — that's the
+Dashboard row's switch, not part of this screen. "Delete schedule": a full-width
+outlined pill button with red/error-colored text, shown only when editing an existing
+schedule.
+
+**"Silent now" (bottom sheet, not a screen)**: reachable from the Dashboard's idle
+status card *and* the bottom-nav "Silent now" item — both open the same sheet rather
+than two different UIs. Title "Silent now", body copy ("Sound comes back
+automatically. This does not touch your recurring schedules."), a row of 4 duration
+chips (15m/30m/1h/2h) each showing a "til H:MM AM/PM" preview of when that duration
+would end, a "Custom" row (label + "Silent until H:MM" caption) with a −/value/+
+stepper, and a single "Start custom silence" pill CTA that starts silence for whatever
+duration is currently selected (a chip tap sets the custom value to that chip's
+minutes; the stepper then fine-tunes from there in 5-minute steps).

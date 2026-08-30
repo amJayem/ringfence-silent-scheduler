@@ -56,3 +56,23 @@ fun formatCountdownClock(remainingSeconds: Long): String {
         "%d:%02d".format(minutes, seconds)
     }
 }
+
+/**
+ * The Dashboard status ring's live countdown while a silence is active (H-04/H-05):
+ * "Xh MMm" with more than an hour left, dropping to a ticking mm:ss once under an
+ * hour — never "0h 04m". Distinct from [formatCountdownClock] (always mm:ss/h:mm:ss)
+ * because the ring's design deliberately keeps hour-scale remainders coarse and only
+ * shows seconds once they're the relevant precision.
+ */
+fun formatActiveCountdown(remainingSeconds: Long): String {
+    val totalSeconds = remainingSeconds.coerceAtLeast(0)
+    return if (totalSeconds >= 3600) {
+        val hours = totalSeconds / 3600
+        val minutes = (totalSeconds % 3600) / 60
+        "${hours}h ${minutes}m"
+    } else {
+        val minutes = totalSeconds / 60
+        val seconds = totalSeconds % 60
+        "%d:%02d".format(minutes, seconds)
+    }
+}

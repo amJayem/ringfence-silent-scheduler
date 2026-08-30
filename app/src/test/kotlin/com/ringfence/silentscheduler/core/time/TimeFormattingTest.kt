@@ -21,6 +21,26 @@ class TimeFormattingTest {
     }
 
     @Test
+    fun `active countdown past an hour shows hours and minutes, not seconds`() {
+        assertEquals("7h 12m", formatActiveCountdown(7 * 3600 + 12 * 60 + 45))
+    }
+
+    @Test
+    fun `active countdown exactly at one hour still shows hours and minutes`() {
+        assertEquals("1h 0m", formatActiveCountdown(3600))
+    }
+
+    @Test
+    fun `active countdown under an hour switches to mm-ss, never 0h form`() {
+        assertEquals("4:09", formatActiveCountdown(4 * 60 + 9))
+    }
+
+    @Test
+    fun `active countdown final seconds`() {
+        assertEquals("0:05", formatActiveCountdown(5))
+    }
+
+    @Test
     fun `minutesBetween same-day window`() {
         assertEquals(20, minutesBetween(13 * 60 + 15, 13 * 60 + 35))
     }

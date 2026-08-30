@@ -1,5 +1,8 @@
 package com.ringfence.silentscheduler.schedule.ui
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -29,8 +32,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -44,7 +51,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ringfence.silentscheduler.R
+import com.ringfence.silentscheduler.core.time.formatActiveCountdown
 import com.ringfence.silentscheduler.core.ui.PillSwitch
+import kotlinx.coroutines.delay
 
 /**
  * Build-order step 7. Structure and copy match the Claude Design source (header,
@@ -163,15 +172,10 @@ private fun StatusCard(
             val active = state.active
             when {
                 active != null -> {
-                    ProgressRing(progressFraction = active.progressFraction) {
-                        Text(
-                            stringResource(R.string.dashboard_silent_status),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Text(active.remainingText, style = MaterialTheme.typography.displayLarge)
-                    }
+                    ActiveCountdownRing(
+                        startEpochMillis = active.startEpochMillis,
+                        endEpochMillis = active.endEpochMillis
+                    )
                     Spacer(Modifier.height(8.dp))
                     Text(
                         active.untilText,
@@ -220,6 +224,44 @@ private fun StatusCard(
                 }
             }
         }
+    }
+}
+
+/**
+ * H-04/H-04b/H-05: ticks every second (not just on the ViewModel's coarser 30s
+ * refresh) and animates the ring arc 900ms linear between ticks, per the design's
+ * motion spec. Kept local to the Composable rather than in the ViewModel's uiState
+ * so a live countdown doesn't force the whole schedule list to recompose every second.
+ */
+@Composable
+private fun ActiveCountdownRing(
+    startEpochMillis: Long,
+    endEpochMillis: Long
+) {
+    var remainingSeconds by remember(startEpochMillis, endEpochMillis) {
+        mutableLongStateOf((endEpochMillis - System.currentTimeMillis()) / 1000)
+    }
+    LaunchedEffect(startEpochMillis, endEpochMillis) {
+        while (true) {
+            remainingSeconds = ((endEpochMillis - System.currentTimeMillis()) / 1000).coerceAtLeast(0)
+            delay(1000)
+        }
+    }
+    val totalSeconds = ((endEpochMillis - startEpochMillis) / 1000).coerceAtLeast(1)
+    val targetFraction = (remainingSeconds.toFloat() / totalSeconds).coerceIn(0f, 1f)
+    val animatedFraction by animateFloatAsState(
+        targetValue = targetFraction,
+        animationSpec = tween(durationMillis = 900, easing = LinearEasing),
+        label = "silenceRingProgress"
+    )
+    ProgressRing(progressFraction = animatedFraction) {
+        Text(
+            stringResource(R.string.dashboard_silent_status),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(formatActiveCountdown(remainingSeconds.coerceAtLeast(0)), style = MaterialTheme.typography.displayLarge)
     }
 }
 

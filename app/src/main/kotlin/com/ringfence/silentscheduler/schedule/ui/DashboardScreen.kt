@@ -36,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -45,7 +46,11 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -80,19 +85,54 @@ fun DashboardScreen(
     // multi-window resize should reflect immediately, not stick to launch-time size.
     val compact = LocalConfiguration.current.screenHeightDp < COMPACT_HEIGHT_THRESHOLD_DP
 
+    // The header nudges up a little as the body scrolls — closing its own top gap,
+    // never eating into the header's own content — so it stays a "little bit
+    // scrollable" without ever clipping or fully hiding the day label/icons.
+    val density = LocalDensity.current
+    val maxHeaderCollapseDp = 16.dp
+    val maxHeaderCollapsePx = with(density) { maxHeaderCollapseDp.toPx() }
+    var headerCollapsePx by remember { mutableFloatStateOf(0f) }
+    val headerNestedScrollConnection = remember(maxHeaderCollapsePx) {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                // Scrolling content up (negative delta): collapse the header first.
+                if (available.y >= 0f) return Offset.Zero
+                val newCollapsePx = (headerCollapsePx - available.y).coerceIn(0f, maxHeaderCollapsePx)
+                val consumedPx = -(newCollapsePx - headerCollapsePx)
+                headerCollapsePx = newCollapsePx
+                return Offset(0f, consumedPx)
+            }
+
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource
+            ): Offset {
+                // Scrolling content down (positive delta) but the list has no more
+                // room to give: expand the header back with whatever's left over.
+                if (available.y <= 0f) return Offset.Zero
+                val newCollapsePx = (headerCollapsePx - available.y).coerceIn(0f, maxHeaderCollapsePx)
+                val consumedPx = -(newCollapsePx - headerCollapsePx)
+                headerCollapsePx = newCollapsePx
+                return Offset(0f, consumedPx)
+            }
+        }
+    }
+    val headerGapDp = maxHeaderCollapseDp - with(density) { headerCollapsePx.toDp() }
+
     Box(modifier = modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .safeDrawingPadding()
                 .padding(horizontal = 20.dp)
+                .nestedScroll(headerNestedScrollConnection)
         ) {
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(headerGapDp))
 
-            // Fixed: the day label and the +/settings icons stay put; everything
-            // below (status card + schedule list) scrolls together as one body, so a
-            // tall status card (active ring plus the R-13 already-silent panel) is
-            // always reachable without losing the top options.
+            // The day label and the +/settings icons keep almost all of their space —
+            // only the gap above them breathes with the scroll — so the header stays
+            // fully readable no matter how far the body has scrolled.
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.weight(1f)) {
                     Text(

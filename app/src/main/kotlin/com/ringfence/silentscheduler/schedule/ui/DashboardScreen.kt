@@ -45,9 +45,11 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -55,6 +57,9 @@ import com.ringfence.silentscheduler.R
 import com.ringfence.silentscheduler.core.time.formatActiveCountdown
 import com.ringfence.silentscheduler.core.ui.PillSwitch
 import kotlinx.coroutines.delay
+
+/** S-01: below this viewport height, the status ring and card compact so a schedule row still fits without scrolling. */
+private const val COMPACT_HEIGHT_THRESHOLD_DP = 700
 
 /**
  * Build-order step 7. Structure and copy match the Claude Design source (header,
@@ -71,6 +76,9 @@ fun DashboardScreen(
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
+    // S-01/S-02/S-03: derived from viewport height, not stored — a rotation or a
+    // multi-window resize should reflect immediately, not stick to launch-time size.
+    val compact = LocalConfiguration.current.screenHeightDp < COMPACT_HEIGHT_THRESHOLD_DP
 
     Box(modifier = modifier.fillMaxSize()) {
         Column(
@@ -100,16 +108,17 @@ fun DashboardScreen(
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(if (compact) 12.dp else 16.dp))
 
             StatusCard(
                 state = state,
+                compact = compact,
                 onEndNow = { viewModel.endActiveNow() },
                 onSilentNow = onSilentNow,
                 onTurnSoundOn = { viewModel.turnSoundOnForActiveSchedule() }
             )
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(if (compact) 16.dp else 24.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -127,7 +136,7 @@ fun DashboardScreen(
                 )
             }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(if (compact) 6.dp else 8.dp))
 
             LazyColumn(modifier = Modifier.weight(1f)) {
                 items(state.rows, key = { it.schedule.id }) { row ->
@@ -157,10 +166,15 @@ fun DashboardScreen(
 @Composable
 private fun StatusCard(
     state: DashboardUiState,
+    compact: Boolean,
     onEndNow: () -> Unit,
     onSilentNow: () -> Unit,
     onTurnSoundOn: () -> Unit
 ) {
+    // S-01: card padding 24dp -> 16dp and inner gap 16dp -> 12dp when compact.
+    val cardPadding = if (compact) 16.dp else 24.dp
+    val gap = if (compact) 12.dp else 16.dp
+
     Surface(
         shape = RoundedCornerShape(24.dp),
         color = MaterialTheme.colorScheme.surface,
@@ -168,7 +182,7 @@ private fun StatusCard(
     ) {
         Column(
             modifier = Modifier
-                .padding(24.dp)
+                .padding(cardPadding)
                 .fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -177,15 +191,16 @@ private fun StatusCard(
                 active != null -> {
                     ActiveCountdownRing(
                         startEpochMillis = active.startEpochMillis,
-                        endEpochMillis = active.endEpochMillis
+                        endEpochMillis = active.endEpochMillis,
+                        compact = compact
                     )
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(gap / 2))
                     Text(
                         active.untilText,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(gap))
                     Button(
                         onClick = onEndNow,
                         shape = RoundedCornerShape(percent = 50),
@@ -200,7 +215,7 @@ private fun StatusCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     if (active.alreadySilentWarning) {
-                        Spacer(Modifier.height(12.dp))
+                        Spacer(Modifier.height(gap * 0.75f))
                         AlreadySilentPanel(
                             // R-15: quick silence has no schedule to attach an override to.
                             onTurnSoundOn = onTurnSoundOn.takeIf { active.source is ActiveSource.FromSchedule }
@@ -214,7 +229,7 @@ private fun StatusCard(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(gap))
                     Button(
                         onClick = onSilentNow,
                         shape = RoundedCornerShape(percent = 50),
@@ -246,7 +261,8 @@ private fun StatusCard(
 @Composable
 private fun ActiveCountdownRing(
     startEpochMillis: Long,
-    endEpochMillis: Long
+    endEpochMillis: Long,
+    compact: Boolean
 ) {
     var remainingSeconds by remember(startEpochMillis, endEpochMillis) {
         mutableLongStateOf((endEpochMillis - System.currentTimeMillis()) / 1000)
@@ -264,7 +280,8 @@ private fun ActiveCountdownRing(
         animationSpec = tween(durationMillis = 900, easing = LinearEasing),
         label = "silenceRingProgress"
     )
-    ProgressRing(progressFraction = animatedFraction) {
+    // S-01: ~78% size when compact (180dp -> 140dp), same ratio the spec gives for its own 188->147px ring.
+    ProgressRing(ringSize = if (compact) 140.dp else 180.dp, progressFraction = animatedFraction) {
         Text(
             stringResource(R.string.dashboard_silent_status),
             style = MaterialTheme.typography.labelMedium,
@@ -312,12 +329,13 @@ private fun AlreadySilentPanel(onTurnSoundOn: (() -> Unit)?) {
 /** Accent arc over a faint full-circle track, depleting as [progressFraction] (time remaining) drops to 0. */
 @Composable
 private fun ProgressRing(
+    ringSize: Dp,
     progressFraction: Float,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val trackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
     val accentColor = MaterialTheme.colorScheme.primary
-    Box(modifier = Modifier.size(180.dp), contentAlignment = Alignment.Center) {
+    Box(modifier = Modifier.size(ringSize), contentAlignment = Alignment.Center) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val strokeWidth = 10.dp.toPx()
             val arcSize = Size(size.width - strokeWidth, size.height - strokeWidth)

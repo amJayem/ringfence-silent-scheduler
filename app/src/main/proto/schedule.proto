@@ -21,4 +21,7 @@ message ScheduleProto {
   // of 0 means schedules saved before this field existed load as FULL_SILENT with no
   // migration needed.
   int32 silence_style = 7;
+  // 0 = RESTORE, 1 = SOUND (see RevertPolicy enum). Same no-migration-needed reasoning
+  // as silence_style: schedules saved before this field existed load as RESTORE.
+  int32 revert_policy = 8;
 }

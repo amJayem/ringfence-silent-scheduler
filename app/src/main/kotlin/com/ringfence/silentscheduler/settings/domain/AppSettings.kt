@@ -1,6 +1,7 @@
 package com.ringfence.silentscheduler.settings.domain
 
 import com.ringfence.silentscheduler.core.notification.NotificationStyle
+import com.ringfence.silentscheduler.core.ringer.RevertPolicy
 import com.ringfence.silentscheduler.core.ringer.SilenceStyle
 import com.ringfence.silentscheduler.core.theme.ThemeOverride
 
@@ -11,6 +12,7 @@ const val DEFAULT_DURATION_MINUTES = 30
 data class AppSettings(
     val defaultDurationMinutes: Int = DEFAULT_DURATION_MINUTES,
     val silenceStyle: SilenceStyle = SilenceStyle.FULL_SILENT,
+    val revertPolicy: RevertPolicy = RevertPolicy.RESTORE,
     val notificationStyle: NotificationStyle = NotificationStyle.BANNER,
     val themeOverride: ThemeOverride = ThemeOverride.SYSTEM
 )

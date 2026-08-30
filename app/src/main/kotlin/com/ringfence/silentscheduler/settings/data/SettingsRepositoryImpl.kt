@@ -5,7 +5,9 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.ringfence.silentscheduler.core.data.toEnumOrDefault
 import com.ringfence.silentscheduler.core.notification.NotificationStyle
+import com.ringfence.silentscheduler.core.ringer.RevertPolicy
 import com.ringfence.silentscheduler.core.ringer.SilenceStyle
 import com.ringfence.silentscheduler.core.theme.ThemeOverride
 import com.ringfence.silentscheduler.settings.domain.AppSettings
@@ -19,6 +21,7 @@ import javax.inject.Singleton
 private object Keys {
     val DEFAULT_DURATION_MINUTES = intPreferencesKey("settings_default_duration_minutes")
     val SILENCE_STYLE = stringPreferencesKey("settings_silence_style")
+    val REVERT_POLICY = stringPreferencesKey("settings_revert_policy")
     val NOTIFICATION_STYLE = stringPreferencesKey("settings_notification_style")
     val THEME_OVERRIDE = stringPreferencesKey("settings_theme_override")
 }
@@ -32,6 +35,7 @@ class SettingsRepositoryImpl @Inject constructor(
         AppSettings(
             defaultDurationMinutes = prefs[Keys.DEFAULT_DURATION_MINUTES] ?: DEFAULT_DURATION_MINUTES,
             silenceStyle = prefs[Keys.SILENCE_STYLE].toEnumOrDefault(SilenceStyle.FULL_SILENT),
+            revertPolicy = prefs[Keys.REVERT_POLICY].toEnumOrDefault(RevertPolicy.RESTORE),
             notificationStyle = prefs[Keys.NOTIFICATION_STYLE].toEnumOrDefault(NotificationStyle.BANNER),
             themeOverride = prefs[Keys.THEME_OVERRIDE].toEnumOrDefault(ThemeOverride.SYSTEM)
         )
@@ -45,6 +49,10 @@ class SettingsRepositoryImpl @Inject constructor(
         dataStore.edit { it[Keys.SILENCE_STYLE] = style.name }
     }
 
+    override suspend fun setRevertPolicy(policy: RevertPolicy) {
+        dataStore.edit { it[Keys.REVERT_POLICY] = policy.name }
+    }
+
     override suspend fun setNotificationStyle(style: NotificationStyle) {
         dataStore.edit { it[Keys.NOTIFICATION_STYLE] = style.name }
     }
@@ -53,6 +61,3 @@ class SettingsRepositoryImpl @Inject constructor(
         dataStore.edit { it[Keys.THEME_OVERRIDE] = override.name }
     }
 }
-
-private inline fun <reified T : Enum<T>> String?.toEnumOrDefault(default: T): T =
-    this?.let { stored -> runCatching { enumValueOf<T>(stored) }.getOrNull() } ?: default

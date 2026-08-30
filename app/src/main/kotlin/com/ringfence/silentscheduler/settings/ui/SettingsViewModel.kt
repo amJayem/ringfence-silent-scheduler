@@ -5,6 +5,7 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ringfence.silentscheduler.core.notification.NotificationStyle
+import com.ringfence.silentscheduler.core.ringer.RevertPolicy
 import com.ringfence.silentscheduler.core.ringer.SilenceStyle
 import com.ringfence.silentscheduler.core.theme.ThemeOverride
 import com.ringfence.silentscheduler.settings.domain.AppSettings
@@ -45,6 +46,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setSilenceStyle(style: SilenceStyle) {
         viewModelScope.launch { settingsRepository.setSilenceStyle(style) }
+    }
+
+    fun setRevertPolicy(policy: RevertPolicy) {
+        viewModelScope.launch { settingsRepository.setRevertPolicy(policy) }
     }
 
     fun setNotificationStyle(style: NotificationStyle) {

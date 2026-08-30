@@ -1,5 +1,6 @@
 package com.ringfence.silentscheduler.schedule.data
 
+import com.ringfence.silentscheduler.core.ringer.RevertPolicy
 import com.ringfence.silentscheduler.core.ringer.SilenceStyle
 import com.ringfence.silentscheduler.schedule.domain.Schedule
 import org.junit.Assert.assertEquals
@@ -17,7 +18,8 @@ class ScheduleMappersTest {
             endMinuteOfDay = 10 * 60,
             repeatDays = setOf(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY),
             isEnabled = true,
-            silenceStyle = SilenceStyle.VIBRATE_ONLY
+            silenceStyle = SilenceStyle.VIBRATE_ONLY,
+            revertPolicy = RevertPolicy.SOUND
         )
 
         val roundTripped = original.toProto().toDomain()
@@ -34,7 +36,8 @@ class ScheduleMappersTest {
             endMinuteOfDay = 7 * 60,
             repeatDays = DayOfWeek.entries.toSet(),
             isEnabled = true,
-            silenceStyle = SilenceStyle.FULL_SILENT
+            silenceStyle = SilenceStyle.FULL_SILENT,
+            revertPolicy = RevertPolicy.RESTORE
         )
 
         val roundTripped = overnight.toProto().toDomain()
@@ -57,5 +60,6 @@ class ScheduleMappersTest {
         )
 
         assertEquals(SilenceStyle.FULL_SILENT, legacy.toProto().toDomain().silenceStyle)
+        assertEquals(RevertPolicy.RESTORE, legacy.toProto().toDomain().revertPolicy)
     }
 }

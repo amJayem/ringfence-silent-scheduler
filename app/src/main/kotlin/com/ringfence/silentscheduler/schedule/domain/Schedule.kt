@@ -1,5 +1,6 @@
 package com.ringfence.silentscheduler.schedule.domain
 
+import com.ringfence.silentscheduler.core.ringer.RevertPolicy
 import com.ringfence.silentscheduler.core.ringer.SilenceStyle
 import java.time.DayOfWeek
 
@@ -10,6 +11,8 @@ import java.time.DayOfWeek
  * @param silenceStyle per-schedule override of the global default (Settings); defaults to
  * [SilenceStyle.FULL_SILENT] so schedules saved before this field existed keep behaving the
  * way the proto's default int value (0) already maps them.
+ * @param revertPolicy per-schedule override of the global default (Settings); defaults to
+ * [RevertPolicy.RESTORE] for the same backward-compatible reason as [silenceStyle].
  */
 data class Schedule(
     val id: String,
@@ -18,5 +21,6 @@ data class Schedule(
     val endMinuteOfDay: Int,
     val repeatDays: Set<DayOfWeek>,
     val isEnabled: Boolean,
-    val silenceStyle: SilenceStyle = SilenceStyle.FULL_SILENT
+    val silenceStyle: SilenceStyle = SilenceStyle.FULL_SILENT,
+    val revertPolicy: RevertPolicy = RevertPolicy.RESTORE
 )

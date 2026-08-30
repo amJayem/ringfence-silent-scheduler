@@ -81,78 +81,79 @@ fun DashboardScreen(
     val compact = LocalConfiguration.current.screenHeightDp < COMPACT_HEIGHT_THRESHOLD_DP
 
     Box(modifier = modifier.fillMaxSize()) {
-        // The header and status card used to sit in a fixed (non-scrolling) Column
-        // above the schedule LazyColumn — if the card grew taller than the remaining
-        // space (e.g. the active ring plus the R-13 already-silent panel), there was
-        // no way to reach the rest of it. Folding everything into one LazyColumn makes
-        // the whole page scroll together, so a tall status card is always reachable.
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .safeDrawingPadding()
                 .padding(horizontal = 20.dp)
         ) {
-            item {
-                Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(16.dp))
 
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.weight(1f)) {
+            // Fixed: the day label and the +/settings icons stay put; everything
+            // below (status card + schedule list) scrolls together as one body, so a
+            // tall status card (active ring plus the R-13 already-silent panel) is
+            // always reachable without losing the top options.
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        stringResource(R.string.dashboard_brand_label),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        letterSpacing = 1.5.sp
+                    )
+                    Text(state.dayLabel, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                }
+                val addScheduleCd = stringResource(R.string.action_add_schedule)
+                IconButton(onClick = onAddSchedule) {
+                    Icon(Icons.Default.Add, contentDescription = addScheduleCd)
+                }
+                IconButton(onClick = onOpenSettings) {
+                    Icon(painterResource(R.drawable.ic_tune), contentDescription = stringResource(R.string.action_settings))
+                }
+            }
+
+            Spacer(Modifier.height(if (compact) 12.dp else 16.dp))
+
+            LazyColumn(modifier = Modifier.weight(1f)) {
+                item {
+                    StatusCard(
+                        state = state,
+                        compact = compact,
+                        onEndNow = { viewModel.endActiveNow() },
+                        onSilentNow = onSilentNow,
+                        onTurnSoundOn = { viewModel.turnSoundOnForActiveSchedule() }
+                    )
+
+                    Spacer(Modifier.height(if (compact) 16.dp else 24.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
                         Text(
-                            stringResource(R.string.dashboard_brand_label),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            letterSpacing = 1.5.sp
+                            stringResource(R.string.dashboard_section_recurring),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Text(state.dayLabel, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                        Text(
+                            stringResource(R.string.dashboard_count_format, state.enabledCount, state.totalCount),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
-                    val addScheduleCd = stringResource(R.string.action_add_schedule)
-                    IconButton(onClick = onAddSchedule) {
-                        Icon(Icons.Default.Add, contentDescription = addScheduleCd)
-                    }
-                    IconButton(onClick = onOpenSettings) {
-                        Icon(painterResource(R.drawable.ic_tune), contentDescription = stringResource(R.string.action_settings))
-                    }
+
+                    Spacer(Modifier.height(if (compact) 6.dp else 8.dp))
                 }
 
-                Spacer(Modifier.height(if (compact) 12.dp else 16.dp))
-
-                StatusCard(
-                    state = state,
-                    compact = compact,
-                    onEndNow = { viewModel.endActiveNow() },
-                    onSilentNow = onSilentNow,
-                    onTurnSoundOn = { viewModel.turnSoundOnForActiveSchedule() }
-                )
-
-                Spacer(Modifier.height(if (compact) 16.dp else 24.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        stringResource(R.string.dashboard_section_recurring),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        stringResource(R.string.dashboard_count_format, state.enabledCount, state.totalCount),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                items(state.rows, key = { it.schedule.id }) { row ->
+                    ScheduleRow(
+                        row = row,
+                        onToggle = { viewModel.toggleEnabled(row.schedule) },
+                        onClick = { onEditSchedule(row.schedule.id) }
                     )
                 }
-
-                Spacer(Modifier.height(if (compact) 6.dp else 8.dp))
+                item { Spacer(Modifier.height(88.dp)) }
             }
-
-            items(state.rows, key = { it.schedule.id }) { row ->
-                ScheduleRow(
-                    row = row,
-                    onToggle = { viewModel.toggleEnabled(row.schedule) },
-                    onClick = { onEditSchedule(row.schedule.id) }
-                )
-            }
-            item { Spacer(Modifier.height(88.dp)) }
         }
 
         FloatingActionButton(

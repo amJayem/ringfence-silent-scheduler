@@ -29,6 +29,7 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -104,7 +105,8 @@ fun DashboardScreen(
             StatusCard(
                 state = state,
                 onEndNow = { viewModel.endActiveNow() },
-                onSilentNow = onSilentNow
+                onSilentNow = onSilentNow,
+                onTurnSoundOn = { viewModel.turnSoundOnForActiveSchedule() }
             )
 
             Spacer(Modifier.height(24.dp))
@@ -156,7 +158,8 @@ fun DashboardScreen(
 private fun StatusCard(
     state: DashboardUiState,
     onEndNow: () -> Unit,
-    onSilentNow: () -> Unit
+    onSilentNow: () -> Unit,
+    onTurnSoundOn: () -> Unit
 ) {
     Surface(
         shape = RoundedCornerShape(24.dp),
@@ -196,6 +199,13 @@ private fun StatusCard(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    if (active.alreadySilentWarning) {
+                        Spacer(Modifier.height(12.dp))
+                        AlreadySilentPanel(
+                            // R-15: quick silence has no schedule to attach an override to.
+                            onTurnSoundOn = onTurnSoundOn.takeIf { active.source is ActiveSource.FromSchedule }
+                        )
+                    }
                 }
                 state.idleUntilText != null -> {
                     Text(state.idleRemainingText.orEmpty(), style = MaterialTheme.typography.displayLarge)
@@ -262,6 +272,40 @@ private fun ActiveCountdownRing(
         )
         Spacer(Modifier.height(4.dp))
         Text(formatActiveCountdown(remainingSeconds.coerceAtLeast(0)), style = MaterialTheme.typography.displayLarge)
+    }
+}
+
+/**
+ * R-13: shown when this window's own policy is RESTORE and the phone was already
+ * silent/vibrate before it started — without this, correctly staying silent (instead
+ * of turning sound on) looks like the app is broken. R-14: schedule-driven windows get
+ * a one-tap override to flip that one schedule to always-sound; quick sessions (no
+ * schedule to attach the override to, R-15) get the explanation only.
+ */
+@Composable
+private fun AlreadySilentPanel(onTurnSoundOn: (() -> Unit)?) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                stringResource(R.string.dashboard_already_silent_warning),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                modifier = Modifier.weight(1f)
+            )
+            if (onTurnSoundOn != null) {
+                Spacer(Modifier.width(8.dp))
+                OutlinedButton(onClick = onTurnSoundOn, shape = RoundedCornerShape(percent = 50)) {
+                    Text(stringResource(R.string.dashboard_turn_sound_on), style = MaterialTheme.typography.labelMedium)
+                }
+            }
+        }
     }
 }
 

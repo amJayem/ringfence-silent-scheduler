@@ -1,8 +1,11 @@
 package com.ringfence.silentscheduler.schedule.ui
 
+import android.media.AudioManager
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ringfence.silentscheduler.core.ringer.RevertPolicy
 import com.ringfence.silentscheduler.core.ringer.SilenceStyle
+import com.ringfence.silentscheduler.core.ringer.SilencerCoordinator
 import com.ringfence.silentscheduler.core.time.formatDurationMinutes
 import com.ringfence.silentscheduler.core.time.formatMinuteOfDay
 import com.ringfence.silentscheduler.quicksilence.domain.QuickSilenceRepository
@@ -20,6 +23,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -50,7 +54,14 @@ data class ActiveCardState(
     val untilText: String,
     val startEpochMillis: Long,
     val endEpochMillis: Long,
-    val source: ActiveSource
+    val source: ActiveSource,
+    /**
+     * R-13: true when this window's own policy is RESTORE and the phone was already
+     * silent/vibrate before it started — without calling this out, correctly
+     * restoring to "still silent" looks like the app failed to un-mute.
+     */
+    val alreadySilentWarning: Boolean,
+    val revertPolicy: RevertPolicy
 )
 
 data class DashboardUiState(
@@ -67,7 +78,8 @@ data class DashboardUiState(
 class DashboardViewModel @Inject constructor(
     private val repository: ScheduleRepository,
     private val quickSilenceRepository: QuickSilenceRepository,
-    private val triggerHandler: ScheduleTriggerHandler
+    private val triggerHandler: ScheduleTriggerHandler,
+    private val silencerCoordinator: SilencerCoordinator
 ) : ViewModel() {
 
     // Recomputes derived state (countdowns, NOW badges) even when nothing in
@@ -89,15 +101,17 @@ class DashboardViewModel @Inject constructor(
     val uiState: StateFlow<DashboardUiState> = combine(
         repository.observeSchedules(),
         quickSilenceRepository.observeState(),
+        silencerCoordinator.observeGlobalPriorMode(),
         ticker,
         manualRefresh
-    ) { schedules, quickSilence, _, _ ->
-        buildState(schedules, quickSilence, LocalDateTime.now())
+    ) { schedules, quickSilence, globalPriorMode, _, _ ->
+        buildState(schedules, quickSilence, globalPriorMode, LocalDateTime.now())
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DashboardUiState())
 
     private fun buildState(
         schedules: List<Schedule>,
         quickSilence: QuickSilenceState,
+        globalPriorMode: Int?,
         now: LocalDateTime
     ): DashboardUiState {
         val dayLabel = now.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())
@@ -111,6 +125,13 @@ class DashboardViewModel @Inject constructor(
             !occ.start.isAfter(now) && occ.end.isAfter(now)
         }
 
+        // A window's own policy governs whether the already-silent warning applies to
+        // it (R-13/R-14 talk about "that schedule"/"a quick session" specifically) —
+        // if this window's policy is already SOUND, there's nothing surprising to warn
+        // about, sound is coming back regardless of what the phone was on before.
+        fun alreadySilentWarning(policy: RevertPolicy) =
+            policy == RevertPolicy.RESTORE && globalPriorMode != null && globalPriorMode != AudioManager.RINGER_MODE_NORMAL
+
         // Quick Silence takes priority for display when both happen to be active —
         // it's the one the user just tapped, so it should be the one they can end.
         val active: ActiveCardState? = when {
@@ -122,7 +143,9 @@ class DashboardViewModel @Inject constructor(
                     untilText = "Quick silence · until ${formatMinuteOfDay(endMinuteOfDay)}",
                     startEpochMillis = quickSilence.startTimeMillis,
                     endEpochMillis = quickSilence.endTimeMillis,
-                    source = ActiveSource.FromQuickSilence
+                    source = ActiveSource.FromQuickSilence,
+                    alreadySilentWarning = alreadySilentWarning(quickSilence.revertPolicy),
+                    revertPolicy = quickSilence.revertPolicy
                 )
             }
             activeSchedule != null -> {
@@ -134,7 +157,9 @@ class DashboardViewModel @Inject constructor(
                     untilText = "${activeSchedule.label} · until ${formatMinuteOfDay(endMinuteOfDay)}",
                     startEpochMillis = occ.start.atZone(zone).toInstant().toEpochMilli(),
                     endEpochMillis = occ.end.atZone(zone).toInstant().toEpochMilli(),
-                    source = ActiveSource.FromSchedule(activeSchedule.id, occ.end)
+                    source = ActiveSource.FromSchedule(activeSchedule.id, occ.end),
+                    alreadySilentWarning = alreadySilentWarning(activeSchedule.revertPolicy),
+                    revertPolicy = activeSchedule.revertPolicy
                 )
             }
             else -> null
@@ -165,10 +190,12 @@ class DashboardViewModel @Inject constructor(
                 else -> formatUpcomingTrigger(now, occ.start)
             }
             val styleWord = if (schedule.silenceStyle == SilenceStyle.VIBRATE_ONLY) "vibrate" else "silent"
+            // R-17: distinguishes the two revert policies at a glance in the list.
+            val revertSuffix = if (schedule.revertPolicy == RevertPolicy.SOUND) " · ends with sound" else ""
             ScheduleRowUiState(
                 schedule = schedule,
                 timeRangeText = "${formatMinuteOfDay(schedule.startMinuteOfDay)} – ${formatMinuteOfDay(schedule.endMinuteOfDay)}",
-                repeatText = "${schedule.repeatDays.toRepeatSummary()} · $styleWord",
+                repeatText = "${schedule.repeatDays.toRepeatSummary()} · $styleWord$revertSuffix",
                 caption = caption,
                 isActiveNow = isActiveNow
             )
@@ -197,6 +224,20 @@ class DashboardViewModel @Inject constructor(
                 ActiveSource.FromQuickSilence -> quickSilenceRepository.revertSilence()
             }
             manualRefresh.value++
+        }
+    }
+
+    /**
+     * R-14: the already-silent warning panel's one-tap override, schedule-only (a
+     * quick session has no schedule to persist a policy change against — R-15).
+     * Only flips *this* schedule's own policy; the current window keeps running
+     * under whatever policy was already in effect when it started.
+     */
+    fun turnSoundOnForActiveSchedule() {
+        val source = uiState.value.active?.source as? ActiveSource.FromSchedule ?: return
+        viewModelScope.launch {
+            val schedule = repository.observeSchedules().first().find { it.id == source.scheduleId } ?: return@launch
+            repository.addOrUpdateSchedule(schedule.copy(revertPolicy = RevertPolicy.SOUND))
         }
     }
 }

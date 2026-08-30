@@ -44,6 +44,8 @@
     <string name="dashboard_empty_subtitle">Tap + to add your first one</string>
     <string name="dashboard_now_badge">NOW</string>
     <string name="dashboard_silent_status">⊘ SILENT</string>
+    <string name="dashboard_already_silent_warning">Your phone was already on silent before this window. It will go back to silent, not sound.</string>
+    <string name="dashboard_turn_sound_on">Turn sound on</string>
 
     <string name="schedule_edit_add_title">Add window</string>
     <string name="schedule_edit_edit_title">Edit window</string>

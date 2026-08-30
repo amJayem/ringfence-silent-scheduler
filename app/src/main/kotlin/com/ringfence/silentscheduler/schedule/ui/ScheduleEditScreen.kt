@@ -17,8 +17,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -115,14 +117,38 @@ fun ScheduleEditScreen(
     var editingStart by remember { mutableStateOf(false) }
     var editingEnd by remember { mutableStateOf(false) }
 
+    // E-11: the only case the source design treats as invalid — a window needs at
+    // least two distinct clock times. minutesBetween() would otherwise interpret
+    // start == end as a full 24h overnight window, which is silently wrong, not
+    // a valid schedule.
+    val isInvalidRange = startMinuteOfDay == endMinuteOfDay
+    val canSave = !isInvalidRange && repeatDays.isNotEmpty()
+
+    fun save() {
+        onSave(
+            Schedule(
+                id = initial?.id ?: UUID.randomUUID().toString(),
+                label = label.ifBlank { "Untitled" },
+                startMinuteOfDay = startMinuteOfDay,
+                endMinuteOfDay = endMinuteOfDay,
+                repeatDays = repeatDays,
+                isEnabled = isEnabled,
+                silenceStyle = silenceStyle
+            )
+        )
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
             .safeDrawingPadding()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 16.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 16.dp)
+        ) {
             IconButton(onClick = onCancel) {
                 Icon(painterResource(R.drawable.ic_arrow_back), contentDescription = null)
             }
@@ -135,28 +161,14 @@ fun ScheduleEditScreen(
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.weight(1f)
             )
-            TextButton(
-                enabled = repeatDays.isNotEmpty(),
-                onClick = {
-                    onSave(
-                        Schedule(
-                            id = initial?.id ?: UUID.randomUUID().toString(),
-                            label = label.ifBlank { "Untitled" },
-                            startMinuteOfDay = startMinuteOfDay,
-                            endMinuteOfDay = endMinuteOfDay,
-                            repeatDays = repeatDays,
-                            isEnabled = isEnabled,
-                            silenceStyle = silenceStyle
-                        )
-                    )
-                }
-            ) {
-                Text(stringResource(R.string.schedule_edit_save))
-            }
         }
 
-        Spacer(Modifier.height(12.dp))
-
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
+        ) {
         SectionLabel(stringResource(R.string.schedule_edit_label_section))
         Spacer(Modifier.height(8.dp))
         OutlinedTextField(
@@ -189,14 +201,18 @@ fun ScheduleEditScreen(
             )
         }
         Spacer(Modifier.height(6.dp))
-        Text(
-            stringResource(
-                R.string.schedule_edit_duration_caption,
-                formatDurationMinutes(minutesBetween(startMinuteOfDay, endMinuteOfDay).toLong())
-            ),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        if (isInvalidRange) {
+            InvalidRangeCard()
+        } else {
+            Text(
+                stringResource(
+                    R.string.schedule_edit_duration_caption,
+                    formatDurationMinutes(minutesBetween(startMinuteOfDay, endMinuteOfDay).toLong())
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
 
         Spacer(Modifier.height(20.dp))
 
@@ -275,6 +291,18 @@ fun ScheduleEditScreen(
         }
 
         Spacer(Modifier.height(24.dp))
+        }
+
+        EditorActionBar(
+            onCancel = onCancel,
+            onSave = ::save,
+            saveEnabled = canSave,
+            saveLabel = if (initial == null) {
+                stringResource(R.string.schedule_edit_save_new)
+            } else {
+                stringResource(R.string.schedule_edit_save_edit)
+            }
+        )
     }
 
     if (editingStart) {
@@ -290,6 +318,74 @@ fun ScheduleEditScreen(
             onDismiss = { editingEnd = false },
             onConfirm = { endMinuteOfDay = it; editingEnd = false }
         )
+    }
+}
+
+/**
+ * E-01b: fixed bottom bar (not scrolling with the form) so Save is always one
+ * thumb-reach away — Cancel is outlined and narrower, Save is filled and wider
+ * (visibly the primary action), matching the source design's flex:1 / flex:1.35 split.
+ */
+@Composable
+private fun EditorActionBar(
+    onCancel: () -> Unit,
+    onSave: () -> Unit,
+    saveEnabled: Boolean,
+    saveLabel: String
+) {
+    Column {
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+        Surface(color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 18.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onCancel,
+                    shape = RoundedCornerShape(percent = 50),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(52.dp)
+                ) {
+                    Text(stringResource(R.string.schedule_edit_cancel))
+                }
+                Button(
+                    onClick = onSave,
+                    enabled = saveEnabled,
+                    shape = RoundedCornerShape(percent = 50),
+                    modifier = Modifier
+                        .weight(1.35f)
+                        .height(52.dp)
+                ) {
+                    Text(saveLabel)
+                }
+            }
+        }
+    }
+}
+
+/** E-11: shown instead of the duration caption when start == end; Save is disabled by the caller. */
+@Composable
+private fun InvalidRangeCard() {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.errorContainer,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                stringResource(R.string.schedule_edit_invalid_title),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onErrorContainer
+            )
+            Text(
+                stringResource(R.string.schedule_edit_invalid_body),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onErrorContainer
+            )
+        }
     }
 }
 

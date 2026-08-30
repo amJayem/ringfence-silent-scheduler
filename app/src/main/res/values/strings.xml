@@ -47,7 +47,11 @@
 
     <string name="schedule_edit_add_title">Add window</string>
     <string name="schedule_edit_edit_title">Edit window</string>
-    <string name="schedule_edit_save">Save</string>
+    <string name="schedule_edit_cancel">Cancel</string>
+    <string name="schedule_edit_save_new">Save schedule</string>
+    <string name="schedule_edit_save_edit">Save changes</string>
+    <string name="schedule_edit_invalid_title">Start and end are the same time</string>
+    <string name="schedule_edit_invalid_body">A window needs at least 5 minutes. For a full 24 hours, use two schedules instead.</string>
     <string name="schedule_edit_label_section">LABEL</string>
     <string name="schedule_edit_label_placeholder">Label</string>
     <string name="schedule_edit_window_section">WINDOW</string>

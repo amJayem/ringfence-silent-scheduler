@@ -97,5 +97,5 @@
     <string name="notification_silence_started_title">%1$s — Silent</string>
     <string name="notification_silence_started_text">Sound is muted until it ends automatically.</string>
     <string name="notification_silence_ended_title">%1$s — Sound restored</string>
-    <string name="notification_silence_ended_text">Your ringer is back to normal.</string>
+    <string name="notification_silence_ended_text">Ringer restored to %1$s.</string>
 </resources>

@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import com.ringfence.silentscheduler.core.notification.SilenceNotifier
 import com.ringfence.silentscheduler.core.ringer.RingerModeController
 import com.ringfence.silentscheduler.core.ringer.SilenceStyle
+import com.ringfence.silentscheduler.core.ringer.toFriendlyRingerModeName
 import com.ringfence.silentscheduler.settings.domain.SettingsRepository
 import kotlinx.coroutines.flow.first
 import java.time.LocalDateTime
@@ -66,7 +67,7 @@ class ScheduleTriggerHandler @Inject constructor(
         ringerModeController.setMode(previousMode)
         preferencesDataStore.edit { prefs -> prefs.remove(previousModeKey(scheduleId)) }
         val notificationStyle = settingsRepository.observeSettings().first().notificationStyle
-        silenceNotifier.notifySilenceEnded(scheduleLabel(scheduleId), notificationStyle)
+        silenceNotifier.notifySilenceEnded(scheduleLabel(scheduleId), notificationStyle, previousMode.toFriendlyRingerModeName())
         Log.i(TAG, "END $scheduleId: restored mode=$previousMode")
 
         // Cancels any still-pending natural end alarm for today's occurrence — matters

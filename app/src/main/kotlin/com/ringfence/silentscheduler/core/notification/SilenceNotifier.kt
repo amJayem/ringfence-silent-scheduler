@@ -56,12 +56,18 @@ class SilenceNotifier @Inject constructor(
         )
     }
 
-    fun notifySilenceEnded(label: String, style: NotificationStyle) {
+    /**
+     * @param restoredModeName the mode actually restored ("Normal"/"Vibrate"/"Silent") —
+     * see [com.ringfence.silentscheduler.core.ringer.toFriendlyRingerModeName]. The body
+     * must name what really happened; a schedule that started while the phone was
+     * already on Vibrate restores Vibrate, not Normal (R-19).
+     */
+    fun notifySilenceEnded(label: String, style: NotificationStyle, restoredModeName: String) {
         post(
             id = label.hashCode(),
             style = style,
             title = context.getString(R.string.notification_silence_ended_title, label),
-            text = context.getString(R.string.notification_silence_ended_text)
+            text = context.getString(R.string.notification_silence_ended_text, restoredModeName)
         )
     }
 

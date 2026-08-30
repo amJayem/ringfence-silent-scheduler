@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import com.ringfence.silentscheduler.core.notification.SilenceNotifier
 import com.ringfence.silentscheduler.core.ringer.RingerModeController
+import com.ringfence.silentscheduler.core.ringer.toFriendlyRingerModeName
 import com.ringfence.silentscheduler.quicksilence.domain.QuickSilenceRepository
 import com.ringfence.silentscheduler.quicksilence.domain.QuickSilenceState
 import com.ringfence.silentscheduler.settings.domain.SettingsRepository
@@ -70,7 +71,7 @@ class QuickSilenceRepositoryImpl @Inject constructor(
             prefs[Keys.IS_ACTIVE] = false
         }
         val notificationStyle = settingsRepository.observeSettings().first().notificationStyle
-        silenceNotifier.notifySilenceEnded(QUICK_SILENCE_LABEL, notificationStyle)
+        silenceNotifier.notifySilenceEnded(QUICK_SILENCE_LABEL, notificationStyle, previousMode.toFriendlyRingerModeName())
         alarmScheduler.cancelRevert()
     }
 }

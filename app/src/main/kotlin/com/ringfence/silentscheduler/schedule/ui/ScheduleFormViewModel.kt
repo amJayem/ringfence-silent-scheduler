@@ -2,6 +2,7 @@ package com.ringfence.silentscheduler.schedule.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ringfence.silentscheduler.core.ringer.RevertPolicy
 import com.ringfence.silentscheduler.core.ringer.SilenceStyle
 import com.ringfence.silentscheduler.schedule.domain.Schedule
 import com.ringfence.silentscheduler.schedule.domain.ScheduleRepository
@@ -28,6 +29,11 @@ class ScheduleFormViewModel @Inject constructor(
     val defaultSilenceStyle: StateFlow<SilenceStyle> = settingsRepository.observeSettings()
         .map { it.silenceStyle }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SilenceStyle.FULL_SILENT)
+
+    /** Pre-fills a brand-new schedule's revert policy with the Settings-wide default (R-05). */
+    val defaultRevertPolicy: StateFlow<RevertPolicy> = settingsRepository.observeSettings()
+        .map { it.revertPolicy }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RevertPolicy.RESTORE)
 
     fun save(schedule: Schedule) {
         viewModelScope.launch { repository.addOrUpdateSchedule(schedule) }

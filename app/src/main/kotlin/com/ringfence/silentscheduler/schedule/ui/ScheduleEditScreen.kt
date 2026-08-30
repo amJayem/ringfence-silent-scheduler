@@ -49,10 +49,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ringfence.silentscheduler.R
+import com.ringfence.silentscheduler.core.ringer.RevertPolicy
 import com.ringfence.silentscheduler.core.ringer.SilenceStyle
 import com.ringfence.silentscheduler.core.time.formatDurationMinutes
 import com.ringfence.silentscheduler.core.time.formatMinuteOfDay
 import com.ringfence.silentscheduler.core.time.minutesBetween
+import com.ringfence.silentscheduler.core.ui.RadioOptionRow
 import com.ringfence.silentscheduler.core.ui.SegmentedControl
 import com.ringfence.silentscheduler.schedule.domain.Schedule
 import com.ringfence.silentscheduler.schedule.domain.WEEKDAYS
@@ -114,6 +116,11 @@ fun ScheduleEditScreen(
         mutableStateOf(initial?.silenceStyle ?: defaultSilenceStyle)
     }
 
+    val defaultRevertPolicy by formViewModel.defaultRevertPolicy.collectAsState()
+    var revertPolicy by remember(initial, defaultRevertPolicy) {
+        mutableStateOf(initial?.revertPolicy ?: defaultRevertPolicy)
+    }
+
     var editingStart by remember { mutableStateOf(false) }
     var editingEnd by remember { mutableStateOf(false) }
 
@@ -133,7 +140,8 @@ fun ScheduleEditScreen(
                 endMinuteOfDay = endMinuteOfDay,
                 repeatDays = repeatDays,
                 isEnabled = isEnabled,
-                silenceStyle = silenceStyle
+                silenceStyle = silenceStyle,
+                revertPolicy = revertPolicy
             )
         )
     }
@@ -275,6 +283,41 @@ fun ScheduleEditScreen(
                 }
             },
             onSelect = { silenceStyle = it }
+        )
+
+        Spacer(Modifier.height(20.dp))
+
+        SectionLabel(stringResource(R.string.schedule_edit_revert_section))
+        Spacer(Modifier.height(8.dp))
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surface,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                RadioOptionRow(
+                    title = stringResource(R.string.schedule_edit_revert_restore_title),
+                    subtitle = stringResource(R.string.schedule_edit_revert_restore_subtitle),
+                    selected = revertPolicy == RevertPolicy.RESTORE,
+                    onClick = { revertPolicy = RevertPolicy.RESTORE }
+                )
+                RadioOptionRow(
+                    title = stringResource(R.string.schedule_edit_revert_sound_title),
+                    subtitle = stringResource(R.string.schedule_edit_revert_sound_subtitle),
+                    selected = revertPolicy == RevertPolicy.SOUND,
+                    onClick = { revertPolicy = RevertPolicy.SOUND }
+                )
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = if (revertPolicy == RevertPolicy.SOUND) {
+                stringResource(R.string.schedule_edit_revert_hint_sound)
+            } else {
+                stringResource(R.string.schedule_edit_revert_hint_restore)
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
         if (initial != null && onDelete != null) {

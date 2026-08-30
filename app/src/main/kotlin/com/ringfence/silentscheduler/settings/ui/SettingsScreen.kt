@@ -30,7 +30,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -53,10 +52,12 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.ringfence.silentscheduler.R
 import com.ringfence.silentscheduler.core.notification.NotificationStyle
+import com.ringfence.silentscheduler.core.ringer.RevertPolicy
 import com.ringfence.silentscheduler.core.ringer.SilenceStyle
 import com.ringfence.silentscheduler.core.theme.BackgroundDark
 import com.ringfence.silentscheduler.core.theme.BackgroundLight
 import com.ringfence.silentscheduler.core.theme.ThemeOverride
+import com.ringfence.silentscheduler.core.ui.RadioOptionRow
 import com.ringfence.silentscheduler.core.ui.SegmentedControl
 import com.ringfence.silentscheduler.settings.domain.AVAILABLE_DURATION_MINUTES
 
@@ -145,8 +146,28 @@ fun SettingsScreen(
 
         Spacer(Modifier.height(20.dp))
 
+        SettingsSection(
+            title = stringResource(R.string.settings_section_revert),
+            caption = stringResource(R.string.settings_revert_caption)
+        ) {
+            RadioOptionRow(
+                title = stringResource(R.string.settings_revert_restore_title),
+                subtitle = stringResource(R.string.settings_revert_restore_subtitle),
+                selected = settings.revertPolicy == RevertPolicy.RESTORE,
+                onClick = { viewModel.setRevertPolicy(RevertPolicy.RESTORE) }
+            )
+            RadioOptionRow(
+                title = stringResource(R.string.settings_revert_sound_title),
+                subtitle = stringResource(R.string.settings_revert_sound_subtitle),
+                selected = settings.revertPolicy == RevertPolicy.SOUND,
+                onClick = { viewModel.setRevertPolicy(RevertPolicy.SOUND) }
+            )
+        }
+
+        Spacer(Modifier.height(20.dp))
+
         SettingsSection(title = stringResource(R.string.settings_section_notification_style)) {
-            NotificationOptionRow(
+            RadioOptionRow(
                 title = stringResource(R.string.settings_notification_banner_title),
                 subtitle = stringResource(R.string.settings_notification_banner_subtitle),
                 selected = settings.notificationStyle == NotificationStyle.BANNER,
@@ -155,7 +176,7 @@ fun SettingsScreen(
                     requestNotificationPermissionIfNeeded()
                 }
             )
-            NotificationOptionRow(
+            RadioOptionRow(
                 title = stringResource(R.string.settings_notification_silent_log_title),
                 subtitle = stringResource(R.string.settings_notification_silent_log_subtitle),
                 selected = settings.notificationStyle == NotificationStyle.SILENT_LOG,
@@ -164,7 +185,7 @@ fun SettingsScreen(
                     requestNotificationPermissionIfNeeded()
                 }
             )
-            NotificationOptionRow(
+            RadioOptionRow(
                 title = stringResource(R.string.settings_notification_none_title),
                 subtitle = stringResource(R.string.settings_notification_none_subtitle),
                 selected = settings.notificationStyle == NotificationStyle.NONE,
@@ -271,29 +292,6 @@ private fun SettingsSection(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-        }
-    }
-}
-
-@Composable
-private fun NotificationOptionRow(
-    title: String,
-    subtitle: String,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        RadioButton(selected = selected, onClick = onClick)
-        Spacer(Modifier.width(8.dp))
-        Column {
-            Text(title, style = MaterialTheme.typography.bodyLarge)
-            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

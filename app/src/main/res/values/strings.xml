@@ -63,6 +63,13 @@
     <string name="schedule_edit_weekdays">Weekdays</string>
     <string name="schedule_edit_weekends">Weekends</string>
     <string name="schedule_edit_silence_style_section">SILENCE STYLE</string>
+    <string name="schedule_edit_revert_section">WHEN IT ENDS</string>
+    <string name="schedule_edit_revert_restore_title">Restore what it was</string>
+    <string name="schedule_edit_revert_restore_subtitle">If your phone was already silent before the window, it stays silent afterwards.</string>
+    <string name="schedule_edit_revert_sound_title">Always turn sound on</string>
+    <string name="schedule_edit_revert_sound_subtitle">Sound is switched on at the end, whatever the phone was set to before.</string>
+    <string name="schedule_edit_revert_hint_sound">Safest choice — you can never be left on silent by this schedule.</string>
+    <string name="schedule_edit_revert_hint_restore">Respects a phone you had already muted yourself.</string>
     <string name="schedule_edit_days_required">Select at least one day</string>
     <string name="schedule_edit_delete">Delete schedule</string>
 
@@ -76,6 +83,12 @@
     <string name="settings_section_silence_style">SILENCE STYLE</string>
     <string name="settings_silence_style_full">Full silent</string>
     <string name="settings_silence_style_vibrate">Vibrate only</string>
+    <string name="settings_section_revert">WHEN A WINDOW ENDS</string>
+    <string name="settings_revert_restore_title">Restore what it was</string>
+    <string name="settings_revert_restore_subtitle">Puts the ringer back to whatever it was when the window started.</string>
+    <string name="settings_revert_sound_title">Always turn sound on</string>
+    <string name="settings_revert_sound_subtitle">Ends every window with sound on, regardless of the previous mode.</string>
+    <string name="settings_revert_caption">The default for new schedules and for quick silence. Each schedule can override it.</string>
     <string name="settings_section_notification_style">NOTIFICATION STYLE</string>
     <string name="settings_notification_banner_title">Banner</string>
     <string name="settings_notification_banner_subtitle">Notify when silence starts and ends</string>

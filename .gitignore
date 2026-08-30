@@ -9,3 +9,8 @@
 .externalNativeBuild/
 .cxx/
 .kotlin/
+
+# Design handoff drops (large tool-specific canvas exports, not durable docs —
+# unlike DESIGN_NOTES.md, which we maintain ourselves): re-audit from these,
+# don't track them.
+design_handoff_silent_scheduler_android/

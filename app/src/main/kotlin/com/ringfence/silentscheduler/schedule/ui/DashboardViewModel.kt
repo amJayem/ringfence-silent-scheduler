@@ -12,6 +12,7 @@ import com.ringfence.silentscheduler.schedule.domain.RecurringScheduleCalculator
 import com.ringfence.silentscheduler.schedule.domain.Schedule
 import com.ringfence.silentscheduler.schedule.domain.ScheduleOccurrence
 import com.ringfence.silentscheduler.schedule.domain.ScheduleRepository
+import com.ringfence.silentscheduler.schedule.domain.formatUpcomingTrigger
 import com.ringfence.silentscheduler.schedule.domain.toRepeatSummary
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
@@ -156,10 +157,12 @@ class DashboardViewModel @Inject constructor(
             val occ = occurrencesById[schedule.id]
             val isActiveNow = occ != null && !occ.start.isAfter(now) && occ.end.isAfter(now)
             val caption = when {
-                !schedule.isEnabled -> "Off"
-                occ == null -> ""
+                // occ is only null here for an enabled schedule when it has zero
+                // repeat days — occurrencesById already filtered out disabled ones.
+                !schedule.isEnabled -> "Off — no upcoming trigger"
+                occ == null -> "No repeat days selected"
                 isActiveNow -> "NOW · Silent until ${formatMinuteOfDay(schedule.endMinuteOfDay)}"
-                else -> "Next in ${formatDurationMinutes(Duration.between(now, occ.start).toMinutes())}"
+                else -> formatUpcomingTrigger(now, occ.start)
             }
             val styleWord = if (schedule.silenceStyle == SilenceStyle.VIBRATE_ONLY) "vibrate" else "silent"
             ScheduleRowUiState(

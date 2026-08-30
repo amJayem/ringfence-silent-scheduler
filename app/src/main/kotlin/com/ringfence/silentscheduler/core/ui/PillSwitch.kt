@@ -26,6 +26,9 @@ private val TrackHeight = 24.dp
 private val ThumbSize = 18.dp
 private val ThumbInset = 3.dp
 
+/** S-05: no touch target below 44dp — the visual track is only 24dp tall, so the tappable area is padded out around it. */
+private val MinTouchTarget = 44.dp
+
 /**
  * Flat filled-thumb toggle matching the design source (no Material default checkmark
  * icon inside the thumb, no filled-track-with-icon look) — the stock M3 [Switch]
@@ -52,24 +55,33 @@ fun PillSwitch(
         label = "pillSwitchOffset"
     )
 
+    // Touch target (44dp square, S-05) is a separate outer box from the visual track
+    // (44x24dp) so the tappable area is bigger than what's drawn, not the other way
+    // around — the track's own dimensions stay exactly what the design specifies.
     Box(
         modifier = modifier
-            .size(TrackWidth, TrackHeight)
-            .clip(RoundedCornerShape(percent = 50))
-            .background(trackColor)
-            .border(1.dp, borderColor, RoundedCornerShape(percent = 50))
+            .size(MinTouchTarget)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null
-            ) { onCheckedChange(!checked) }
+            ) { onCheckedChange(!checked) },
+        contentAlignment = Alignment.Center
     ) {
         Box(
             modifier = Modifier
-                .align(Alignment.CenterStart)
-                .padding(start = thumbOffset)
-                .size(ThumbSize)
-                .clip(CircleShape)
-                .background(thumbColor)
-        )
+                .size(TrackWidth, TrackHeight)
+                .clip(RoundedCornerShape(percent = 50))
+                .background(trackColor)
+                .border(1.dp, borderColor, RoundedCornerShape(percent = 50))
+        ) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(start = thumbOffset)
+                    .size(ThumbSize)
+                    .clip(CircleShape)
+                    .background(thumbColor)
+            )
+        }
     }
 }

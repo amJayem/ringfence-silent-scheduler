@@ -98,6 +98,16 @@ class DashboardViewModel @Inject constructor(
     // tick instead of reflecting the tap immediately.
     private val manualRefresh = MutableStateFlow(0)
 
+    init {
+        // Self-heal for a missed revert alarm (force-stop, Doze, reboot): a Quick
+        // Silence session whose end time already passed but is still marked active
+        // would otherwise never get corrected until the app is force-relaunched —
+        // this catches it as soon as the Dashboard is open, not just at process start.
+        viewModelScope.launch {
+            ticker.collect { quickSilenceRepository.reconcileIfExpired() }
+        }
+    }
+
     val uiState: StateFlow<DashboardUiState> = combine(
         repository.observeSchedules(),
         quickSilenceRepository.observeState(),
@@ -134,8 +144,13 @@ class DashboardViewModel @Inject constructor(
 
         // Quick Silence takes priority for display when both happen to be active —
         // it's the one the user just tapped, so it should be the one they can end.
+        // Checking endTimeMillis here too (not just isActive) means a session whose
+        // revert alarm was lost stops showing as active immediately, the same way a
+        // schedule's own active window is derived live from the clock below, instead
+        // of waiting on reconcileIfExpired()'s DataStore write to come back around.
+        val nowMillis = now.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         val active: ActiveCardState? = when {
-            quickSilence.isActive -> {
+            quickSilence.isActive && quickSilence.endTimeMillis > nowMillis -> {
                 val endTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(quickSilence.endTimeMillis), ZoneId.systemDefault())
                 val endMinuteOfDay = endTime.hour * 60 + endTime.minute
                 ActiveCardState(

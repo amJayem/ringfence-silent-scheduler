@@ -81,4 +81,13 @@ class QuickSilenceRepositoryImpl @Inject constructor(
         }
         alarmScheduler.cancelRevert()
     }
+
+    override suspend fun reconcileIfExpired() {
+        val prefs = dataStore.data.first()
+        val isActive = prefs[Keys.IS_ACTIVE] ?: false
+        val endTime = prefs[Keys.END_TIME] ?: 0L
+        if (isActive && endTime <= System.currentTimeMillis()) {
+            revertSilence()
+        }
+    }
 }

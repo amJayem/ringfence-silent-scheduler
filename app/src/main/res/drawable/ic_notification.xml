@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Circle + diagonal slash: the app's own "silence" mark used throughout the
+         design (onboarding, the status ring's "SILENT" badge), not just a plain ring —
+         a bare circle reads as nothing in particular at status-bar size, this reads
+         instantly as muted. Bolder strokes than the design's own (which are sized for
+         a much larger canvas) since a thin line disappears at 24dp; the system renders
+         only this shape's alpha, ignoring color, so this white fill is never seen as-is. -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2.6"
+        android:strokeLineCap="round"
+        android:pathData="M12,3 a9,9 0 1,0 0.1,0 Z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2.6"
+        android:strokeLineCap="round"
+        android:pathData="M6.5,17.5 L17.5,6.5" />
+</vector>

@@ -10,6 +10,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
+import com.ringfence.silentscheduler.MainActivity
 import com.ringfence.silentscheduler.R
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -111,11 +112,18 @@ class SilenceNotifier @Inject constructor(
             return
         }
         val channelId = if (style == NotificationStyle.BANNER) CHANNEL_BANNER else CHANNEL_SILENT_LOG
+        val contentIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val contentPendingIntent = PendingIntent.getActivity(
+            context, id, contentIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
         val builder = NotificationCompat.Builder(context, channelId)
-            .setSmallIcon(R.drawable.ic_do_not_disturb)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentText(text)
             .setAutoCancel(true)
+            .setContentIntent(contentPendingIntent)
 
         if (timeoutAfterMillis != null) {
             builder.setTimeoutAfter(timeoutAfterMillis)

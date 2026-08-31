@@ -12,8 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -29,6 +27,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.ringfence.silentscheduler.R
 import com.ringfence.silentscheduler.core.theme.RingfenceTheme
+import com.ringfence.silentscheduler.core.ui.PrimaryButton
 
 /**
  * The explainer screen required before requesting ACCESS_NOTIFICATION_POLICY (DND
@@ -99,15 +98,11 @@ fun DndAccessScreen(
 
         Spacer(Modifier.weight(1f))
 
-        Button(
+        PrimaryButton(
+            text = stringResource(R.string.onboarding_allow_cta),
             onClick = onAllowClick,
-            shape = RoundedCornerShape(percent = 50),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp)
-        ) {
-            Text(stringResource(R.string.onboarding_allow_cta))
-        }
+            modifier = Modifier.fillMaxWidth()
+        )
 
         Spacer(Modifier.height(12.dp))
 

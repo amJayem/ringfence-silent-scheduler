@@ -17,7 +17,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -45,7 +44,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ringfence.silentscheduler.R
@@ -54,6 +55,7 @@ import com.ringfence.silentscheduler.core.ringer.SilenceStyle
 import com.ringfence.silentscheduler.core.time.formatDurationMinutes
 import com.ringfence.silentscheduler.core.time.formatMinuteOfDay
 import com.ringfence.silentscheduler.core.time.minutesBetween
+import com.ringfence.silentscheduler.core.ui.PrimaryButton
 import com.ringfence.silentscheduler.core.ui.RadioOptionRow
 import com.ringfence.silentscheduler.core.ui.SegmentedControl
 import com.ringfence.silentscheduler.schedule.domain.Schedule
@@ -398,18 +400,16 @@ private fun EditorActionBar(
                         .weight(1f)
                         .height(52.dp)
                 ) {
-                    Text(stringResource(R.string.schedule_edit_cancel))
+                    Text(stringResource(R.string.schedule_edit_cancel), fontSize = 15.5.sp, fontWeight = FontWeight.SemiBold)
                 }
-                Button(
+                PrimaryButton(
+                    text = saveLabel,
                     onClick = onSave,
                     enabled = saveEnabled,
-                    shape = RoundedCornerShape(percent = 50),
-                    modifier = Modifier
-                        .weight(1.35f)
-                        .height(52.dp)
-                ) {
-                    Text(saveLabel)
-                }
+                    modifier = Modifier.weight(1.35f),
+                    height = 52.dp,
+                    fontSize = 15.5.sp
+                )
             }
         }
     }

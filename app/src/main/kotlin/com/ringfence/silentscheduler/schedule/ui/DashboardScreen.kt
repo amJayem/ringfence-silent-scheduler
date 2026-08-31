@@ -62,6 +62,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.ringfence.silentscheduler.R
 import com.ringfence.silentscheduler.core.time.formatActiveCountdown
 import com.ringfence.silentscheduler.core.ui.PillSwitch
+import com.ringfence.silentscheduler.core.ui.PrimaryButton
 import kotlinx.coroutines.delay
 
 /** S-01: below this viewport height, the status ring and card compact so a schedule row still fits without scrolling. */
@@ -253,13 +254,11 @@ private fun StatusCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(Modifier.height(gap))
-                    Button(
+                    PrimaryButton(
+                        text = stringResource(R.string.dashboard_end_silence_now),
                         onClick = onEndNow,
-                        shape = RoundedCornerShape(percent = 50),
                         modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(stringResource(R.string.dashboard_end_silence_now))
-                    }
+                    )
                     Spacer(Modifier.height(4.dp))
                     Text(
                         stringResource(R.string.dashboard_end_silence_caption),
@@ -287,13 +286,11 @@ private fun StatusCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(Modifier.height(gap))
-                    Button(
+                    PrimaryButton(
+                        text = stringResource(R.string.dashboard_silent_now),
                         onClick = onSilentNow,
-                        shape = RoundedCornerShape(percent = 50),
                         modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(stringResource(R.string.dashboard_silent_now))
-                    }
+                    )
                 }
             }
         }

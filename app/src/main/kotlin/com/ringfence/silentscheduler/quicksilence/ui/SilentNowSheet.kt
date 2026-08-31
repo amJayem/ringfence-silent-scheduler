@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -39,9 +38,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ringfence.silentscheduler.R
 import com.ringfence.silentscheduler.core.time.formatMinuteOfDay
+import com.ringfence.silentscheduler.core.ui.PrimaryButton
 import com.ringfence.silentscheduler.settings.domain.AVAILABLE_DURATION_MINUTES
 import java.time.LocalTime
 
@@ -151,16 +152,16 @@ fun SilentNowSheet(
 
             Spacer(Modifier.height(20.dp))
 
-            Button(
+            PrimaryButton(
+                text = stringResource(R.string.quick_silence_start_custom_cta),
                 onClick = {
                     viewModel.startSilence(selectedMinutes)
                     onDismiss()
                 },
-                shape = RoundedCornerShape(percent = 50),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(stringResource(R.string.quick_silence_start_custom_cta))
-            }
+                modifier = Modifier.fillMaxWidth(),
+                height = 52.dp,
+                fontSize = 15.5.sp
+            )
 
             Spacer(Modifier.height(12.dp))
         }

@@ -458,6 +458,7 @@ private fun ScheduleRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+            Spacer(Modifier.width(12.dp))
             PillSwitch(checked = row.schedule.isEnabled, onCheckedChange = { onToggle() })
         }
     }

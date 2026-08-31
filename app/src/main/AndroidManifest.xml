@@ -18,6 +18,10 @@
             android:exported="false" />
 
         <receiver
+            android:name=".core.notification.EndSilenceReceiver"
+            android:exported="false" />
+
+        <receiver
             android:name=".schedule.data.ScheduleTriggerReceiver"
             android:exported="false" />
 

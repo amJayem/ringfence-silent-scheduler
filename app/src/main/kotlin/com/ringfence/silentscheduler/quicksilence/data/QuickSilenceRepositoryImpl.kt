@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.ringfence.silentscheduler.core.data.toEnumOrDefault
+import com.ringfence.silentscheduler.core.notification.SilenceEndAction
 import com.ringfence.silentscheduler.core.notification.SilenceNotifier
 import com.ringfence.silentscheduler.core.ringer.RevertPolicy
 import com.ringfence.silentscheduler.core.ringer.SilencerCoordinator
@@ -63,7 +64,7 @@ class QuickSilenceRepositoryImpl @Inject constructor(
         // reachable). Not wrapped defensively here — CLAUDE.md's revoked-permission
         // banner belongs on the Dashboard (step 7), not swallowed silently here.
         silencerCoordinator.onWindowStart(settings.silenceStyle)
-        silenceNotifier.notifySilenceStarted(QUICK_SILENCE_LABEL, settings.notificationStyle)
+        silenceNotifier.notifySilenceStarted(QUICK_SILENCE_LABEL, settings.notificationStyle, endTime, SilenceEndAction.QuickSilence)
         alarmScheduler.scheduleRevert(endTime)
     }
 

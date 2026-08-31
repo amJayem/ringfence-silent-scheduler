@@ -117,4 +117,5 @@
     <string name="notification_silence_started_text">Sound is muted until it ends automatically.</string>
     <string name="notification_silence_ended_title">%1$s — Sound restored</string>
     <string name="notification_silence_ended_text">Ringer restored to %1$s.</string>
+    <string name="notification_action_end_silence">End silence</string>
 </resources>

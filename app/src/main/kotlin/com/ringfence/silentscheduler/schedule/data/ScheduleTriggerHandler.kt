@@ -5,14 +5,17 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import com.ringfence.silentscheduler.core.notification.SilenceEndAction
 import com.ringfence.silentscheduler.core.notification.SilenceNotifier
 import com.ringfence.silentscheduler.core.ringer.RevertPolicy
 import com.ringfence.silentscheduler.core.ringer.SilenceStyle
 import com.ringfence.silentscheduler.core.ringer.SilencerCoordinator
 import com.ringfence.silentscheduler.core.ringer.toFriendlyRingerModeName
+import com.ringfence.silentscheduler.schedule.domain.RecurringScheduleCalculator
 import com.ringfence.silentscheduler.settings.domain.SettingsRepository
 import kotlinx.coroutines.flow.first
 import java.time.LocalDateTime
+import java.time.ZoneId
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -59,7 +62,16 @@ class ScheduleTriggerHandler @Inject constructor(
         val notificationStyle = settingsRepository.observeSettings().first().notificationStyle
         preferencesDataStore.edit { prefs -> prefs[key] = true }
         silencerCoordinator.onWindowStart(schedule?.silenceStyle ?: SilenceStyle.FULL_SILENT)
-        silenceNotifier.notifySilenceStarted(schedule?.label ?: "Schedule", notificationStyle)
+        val endEpochMillis = schedule
+            ?.let { RecurringScheduleCalculator.nextOccurrence(it, LocalDateTime.now()).end }
+            ?.atZone(ZoneId.systemDefault())?.toInstant()?.toEpochMilli()
+            ?: System.currentTimeMillis()
+        silenceNotifier.notifySilenceStarted(
+            schedule?.label ?: "Schedule",
+            notificationStyle,
+            endEpochMillis,
+            SilenceEndAction.Schedule(scheduleId)
+        )
         Log.i(TAG, "START $scheduleId: now silencing")
     }
 

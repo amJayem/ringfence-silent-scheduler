@@ -3,7 +3,9 @@ package com.ringfence.silentscheduler.core.notification
 import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.ActivityCompat
@@ -12,6 +14,12 @@ import com.ringfence.silentscheduler.R
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
+
+/** Which real session a silence-started notification's "End silence" action should end. */
+sealed class SilenceEndAction {
+    data object QuickSilence : SilenceEndAction()
+    data class Schedule(val scheduleId: String) : SilenceEndAction()
+}
 
 /**
  * Posts the optional silence-started/silence-ended notifications described by the
@@ -47,12 +55,20 @@ class SilenceNotifier @Inject constructor(
         }
     }
 
-    fun notifySilenceStarted(label: String, style: NotificationStyle) {
+    /**
+     * @param endEpochMillis when this session naturally ends — shown as a live
+     * countdown via the system's own chronometer view (see [post]), visible in the
+     * notification's collapsed state with no reposting or background work needed.
+     * @param endAction identifies which real session "End silence" should end.
+     */
+    fun notifySilenceStarted(label: String, style: NotificationStyle, endEpochMillis: Long, endAction: SilenceEndAction) {
         post(
             id = label.hashCode(),
             style = style,
             title = context.getString(R.string.notification_silence_started_title, label),
-            text = context.getString(R.string.notification_silence_started_text)
+            text = context.getString(R.string.notification_silence_started_text),
+            endEpochMillis = endEpochMillis,
+            endAction = endAction
         )
     }
 
@@ -71,7 +87,14 @@ class SilenceNotifier @Inject constructor(
         )
     }
 
-    private fun post(id: Int, style: NotificationStyle, title: String, text: String) {
+    private fun post(
+        id: Int,
+        style: NotificationStyle,
+        title: String,
+        text: String,
+        endEpochMillis: Long? = null,
+        endAction: SilenceEndAction? = null
+    ) {
         if (style == NotificationStyle.NONE) return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
@@ -82,13 +105,43 @@ class SilenceNotifier @Inject constructor(
             return
         }
         val channelId = if (style == NotificationStyle.BANNER) CHANNEL_BANNER else CHANNEL_SILENT_LOG
-        val notification = NotificationCompat.Builder(context, channelId)
+        val builder = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.drawable.ic_do_not_disturb)
             .setContentTitle(title)
             .setContentText(text)
             .setAutoCancel(true)
-            .build()
-        notificationManager.notify(id, notification)
+
+        if (endEpochMillis != null) {
+            // setUsesChronometer + setChronometerCountDown hands the ticking off to the
+            // system itself, which counts down to setWhen()'s time once a second — the
+            // countdown shows in the collapsed notification with no repost/alarm of our
+            // own needed to keep it live.
+            builder.setUsesChronometer(true)
+                .setChronometerCountDown(true)
+                .setWhen(endEpochMillis)
+        }
+
+        if (endAction != null) {
+            val actionIntent = Intent(context, EndSilenceReceiver::class.java).apply {
+                action = when (endAction) {
+                    is SilenceEndAction.QuickSilence -> EndSilenceReceiver.ACTION_END_QUICK_SILENCE
+                    is SilenceEndAction.Schedule -> EndSilenceReceiver.ACTION_END_SCHEDULE
+                }
+                if (endAction is SilenceEndAction.Schedule) {
+                    putExtra(EndSilenceReceiver.EXTRA_SCHEDULE_ID, endAction.scheduleId)
+                }
+            }
+            val actionPendingIntent = PendingIntent.getBroadcast(
+                context, id, actionIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            builder.addAction(
+                R.drawable.ic_volume_up,
+                context.getString(R.string.notification_action_end_silence),
+                actionPendingIntent
+            )
+        }
+
+        notificationManager.notify(id, builder.build())
     }
 
     private companion object {

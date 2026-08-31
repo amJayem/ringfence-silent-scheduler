@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -108,8 +107,17 @@ fun SilentNowSheet(
 
             Spacer(Modifier.height(20.dp))
 
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.weight(1f)) {
+            // Matches design_handoff_silent_scheduler_android/SilentApp.dc.html's own
+            // "Custom" row exactly: gap:12px between the label block and the stepper
+            // group, gap:10px inside the stepper group — the previous version had
+            // neither gap and leaned on one Text's own padding to fake spacing, which
+            // is what fell apart once the value grew past 2 digits.
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(stringResource(R.string.quick_silence_custom_label), style = MaterialTheme.typography.titleMedium)
                     val untilMinuteOfDay = now.plusMinutes(selectedMinutes.toLong()).let { it.hour * 60 + it.minute }
                     Text(
@@ -118,26 +126,27 @@ fun SilentNowSheet(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                StepperButton(
-                    iconRes = R.drawable.ic_minus,
-                    contentDescription = stringResource(R.string.quick_silence_decrease_cd),
-                    onClick = { selectedMinutes = (selectedMinutes - STEP_MINUTES).coerceAtLeast(MIN_MINUTES) }
-                )
-                Text(
-                    stringResource(R.string.quick_silence_minutes_format, selectedMinutes),
-                    style = MaterialTheme.typography.titleMedium,
-                    // A fixed 56dp fit "15m" but crowded the stepper buttons once the
-                    // value reached 3+ digits (e.g. "100m") — widthIn only sets a floor,
-                    // so it grows instead of clipping/overlapping at the top of the range.
-                    modifier = Modifier.widthIn(min = 40.dp).padding(horizontal = 8.dp),
-                    textAlign = TextAlign.Center,
-                    maxLines = 1
-                )
-                StepperButton(
-                    iconRes = R.drawable.ic_plus,
-                    contentDescription = stringResource(R.string.quick_silence_increase_cd),
-                    onClick = { selectedMinutes = (selectedMinutes + STEP_MINUTES).coerceAtMost(MAX_MINUTES) }
-                )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    StepperButton(
+                        iconRes = R.drawable.ic_minus,
+                        contentDescription = stringResource(R.string.quick_silence_decrease_cd),
+                        onClick = { selectedMinutes = (selectedMinutes - STEP_MINUTES).coerceAtLeast(MIN_MINUTES) }
+                    )
+                    Text(
+                        stringResource(R.string.quick_silence_minutes_format, selectedMinutes),
+                        style = MaterialTheme.typography.titleMedium,
+                        // min-width:66px in the design — a floor, not a fixed width, so
+                        // "240m" still grows instead of clipping at the top of the range.
+                        modifier = Modifier.widthIn(min = 66.dp),
+                        textAlign = TextAlign.Center,
+                        maxLines = 1
+                    )
+                    StepperButton(
+                        iconRes = R.drawable.ic_plus,
+                        contentDescription = stringResource(R.string.quick_silence_increase_cd),
+                        onClick = { selectedMinutes = (selectedMinutes + STEP_MINUTES).coerceAtMost(MAX_MINUTES) }
+                    )
+                }
             }
 
             Spacer(Modifier.height(20.dp))
@@ -205,12 +214,14 @@ private fun StepperButton(
     contentDescription: String,
     onClick: () -> Unit
 ) {
+    // Design: 38x38, 12dp corner radius, flat surfaceVariant fill, no border — a bare
+    // 32dp outlined circle previously, which also left less room to tap accurately.
     IconButton(
         onClick = onClick,
         modifier = Modifier
-            .size(32.dp)
-            .clip(CircleShape)
-            .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+            .size(38.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Icon(painterResource(iconRes), contentDescription = contentDescription, modifier = Modifier.size(16.dp))
     }

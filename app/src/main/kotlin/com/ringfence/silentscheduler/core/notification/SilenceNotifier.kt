@@ -83,7 +83,12 @@ class SilenceNotifier @Inject constructor(
             id = label.hashCode(),
             style = style,
             title = context.getString(R.string.notification_silence_ended_title, label),
-            text = context.getString(R.string.notification_silence_ended_text, restoredModeName)
+            text = context.getString(R.string.notification_silence_ended_text, restoredModeName),
+            // Once sound is back there's nothing left to act on — the system clears it
+            // on its own shortly after so it doesn't linger as clutter. The active
+            // (started) notification never gets this: it's still useful for the whole
+            // session, not just a fleeting confirmation.
+            timeoutAfterMillis = ENDED_NOTIFICATION_TIMEOUT_MILLIS
         )
     }
 
@@ -93,7 +98,8 @@ class SilenceNotifier @Inject constructor(
         title: String,
         text: String,
         endEpochMillis: Long? = null,
-        endAction: SilenceEndAction? = null
+        endAction: SilenceEndAction? = null,
+        timeoutAfterMillis: Long? = null
     ) {
         if (style == NotificationStyle.NONE) return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
@@ -110,6 +116,10 @@ class SilenceNotifier @Inject constructor(
             .setContentTitle(title)
             .setContentText(text)
             .setAutoCancel(true)
+
+        if (timeoutAfterMillis != null) {
+            builder.setTimeoutAfter(timeoutAfterMillis)
+        }
 
         if (endEpochMillis != null) {
             // setUsesChronometer + setChronometerCountDown hands the ticking off to the
@@ -147,5 +157,6 @@ class SilenceNotifier @Inject constructor(
     private companion object {
         const val CHANNEL_BANNER = "silence_banner"
         const val CHANNEL_SILENT_LOG = "silence_silent_log"
+        const val ENDED_NOTIFICATION_TIMEOUT_MILLIS = 5_000L
     }
 }

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -37,6 +38,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ringfence.silentscheduler.R
@@ -124,8 +126,12 @@ fun SilentNowSheet(
                 Text(
                     stringResource(R.string.quick_silence_minutes_format, selectedMinutes),
                     style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.width(56.dp).padding(horizontal = 4.dp),
-                    textAlign = TextAlign.Center
+                    // A fixed 56dp fit "15m" but crowded the stepper buttons once the
+                    // value reached 3+ digits (e.g. "100m") — widthIn only sets a floor,
+                    // so it grows instead of clipping/overlapping at the top of the range.
+                    modifier = Modifier.widthIn(min = 40.dp).padding(horizontal = 8.dp),
+                    textAlign = TextAlign.Center,
+                    maxLines = 1
                 )
                 StepperButton(
                     iconRes = R.drawable.ic_plus,
@@ -176,12 +182,19 @@ private fun DurationChip(
         Text(
             durationLabel(minutes),
             style = MaterialTheme.typography.titleMedium,
-            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+            maxLines = 1
         )
         Text(
             untilText,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            // On a narrow screen four equal-width chips leave too little room for
+            // "til H:MM AM" — letting it wrap was the actual bug: only the chips whose
+            // text happened to be a character longer wrapped to a second line, leaving
+            // the row jagged/uneven instead of a clean single-line grid on any screen.
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }

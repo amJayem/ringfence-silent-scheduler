@@ -1,9 +1,17 @@
 package com.ringfence.silentscheduler.core.navigation
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -12,9 +20,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -61,26 +75,26 @@ fun MainAppShell() {
         bottomBar = {
             if (currentRoute in bottomNavRoutes) {
                 NavigationBar {
-                    NavigationBarItem(
+                    PillNavItem(
                         selected = currentRoute == Routes.DASHBOARD && !showSilentNowSheet,
                         onClick = { navController.navigateToTab(Routes.DASHBOARD) },
-                        icon = { Icon(painterResource(R.drawable.ic_schedule), contentDescription = null) },
-                        label = { Text(stringResource(R.string.nav_schedules)) }
+                        icon = painterResource(R.drawable.ic_schedule),
+                        label = stringResource(R.string.nav_schedules)
                     )
-                    NavigationBarItem(
+                    PillNavItem(
                         selected = showSilentNowSheet,
                         onClick = {
                             navController.navigateToTab(Routes.DASHBOARD)
                             showSilentNowSheet = true
                         },
-                        icon = { Icon(painterResource(R.drawable.ic_do_not_disturb), contentDescription = null) },
-                        label = { Text(stringResource(R.string.nav_silent_now)) }
+                        icon = painterResource(R.drawable.ic_do_not_disturb),
+                        label = stringResource(R.string.nav_silent_now)
                     )
-                    NavigationBarItem(
+                    PillNavItem(
                         selected = currentRoute == Routes.SETTINGS,
                         onClick = { navController.navigateToTab(Routes.SETTINGS) },
-                        icon = { Icon(painterResource(R.drawable.ic_tune), contentDescription = null) },
-                        label = { Text(stringResource(R.string.nav_settings)) }
+                        icon = painterResource(R.drawable.ic_tune),
+                        label = stringResource(R.string.nav_settings)
                     )
                 }
             }
@@ -141,6 +155,42 @@ fun MainAppShell() {
 
     if (showSilentNowSheet) {
         SilentNowSheet(onDismiss = { showSilentNowSheet = false })
+    }
+}
+
+/**
+ * Matches the design's tab styling, which the stock M3 [androidx.compose.material3.NavigationBarItem]
+ * can't reproduce: there, the selected indicator pill sizes only to the icon, and the
+ * label keeps the default (non-accent) text color. Here the pill wraps icon+label as
+ * one unit and both turn the accent color together when selected.
+ */
+@Composable
+private fun RowScope.PillNavItem(
+    selected: Boolean,
+    onClick: () -> Unit,
+    icon: Painter,
+    label: String
+) {
+    val tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+    val pillColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
+    Column(
+        modifier = Modifier
+            .weight(1f)
+            .fillMaxWidth()
+            .padding(horizontal = 6.dp, vertical = 4.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(pillColor)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick
+            )
+            .padding(vertical = 7.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(5.dp)
+    ) {
+        Icon(icon, contentDescription = null, tint = tint)
+        Text(label, style = MaterialTheme.typography.labelSmall, color = tint, fontWeight = FontWeight.SemiBold)
     }
 }
 

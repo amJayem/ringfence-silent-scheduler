@@ -157,6 +157,6 @@ class SilenceNotifier @Inject constructor(
     private companion object {
         const val CHANNEL_BANNER = "silence_banner"
         const val CHANNEL_SILENT_LOG = "silence_silent_log"
-        const val ENDED_NOTIFICATION_TIMEOUT_MILLIS = 5_000L
+        const val ENDED_NOTIFICATION_TIMEOUT_MILLIS = 3_000L
     }
 }

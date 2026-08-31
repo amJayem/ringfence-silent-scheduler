@@ -183,6 +183,11 @@ fun DashboardScreen(
                     }
 
                     Spacer(Modifier.height(if (compact) 6.dp else 8.dp))
+
+                    if (state.isAllOff) {
+                        AllSchedulesPausedPanel(onResumeAll = { viewModel.resumeAll() })
+                        Spacer(Modifier.height(if (compact) 6.dp else 8.dp))
+                    }
                 }
 
                 items(state.rows, key = { it.schedule.id }) { row ->
@@ -268,10 +273,15 @@ private fun StatusCard(
                         )
                     }
                 }
-                state.idleUntilText != null -> {
-                    Text(state.idleRemainingText.orEmpty(), style = MaterialTheme.typography.displayLarge)
+                else -> {
+                    // The design keeps this same ring-shaped card for every idle case —
+                    // has-an-upcoming-trigger, all-schedules-off, and zero-schedules-ever
+                    // all just change the kicker/countdown/sub text, never the card's
+                    // own shape — so its height never jumps depending on schedule state.
+                    IdleStatusRing(countdownText = state.idleCountdownText, compact = compact)
+                    Spacer(Modifier.height(gap / 2))
                     Text(
-                        state.idleUntilText,
+                        state.idleSubText,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -283,15 +293,6 @@ private fun StatusCard(
                     ) {
                         Text(stringResource(R.string.dashboard_silent_now))
                     }
-                }
-                else -> {
-                    Text(stringResource(R.string.dashboard_empty_title), style = MaterialTheme.typography.titleMedium)
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        stringResource(R.string.dashboard_empty_subtitle),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
             }
         }
@@ -339,6 +340,26 @@ private fun ActiveCountdownRing(
 }
 
 /**
+ * H-01/H-07: the idle counterpart to [ActiveCountdownRing] — same ring, same size,
+ * just static (0% progress, so only the faint track shows) and dim-tinted rather
+ * than ticking down in accent color. Exists so the status card is the same shape
+ * whether idle or active, instead of collapsing to a bare text block whenever there
+ * was nothing to count down to.
+ */
+@Composable
+private fun IdleStatusRing(countdownText: String, compact: Boolean) {
+    ProgressRing(ringSize = if (compact) 140.dp else 180.dp, progressFraction = 0f) {
+        Text(
+            stringResource(R.string.dashboard_sound_on_status),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(countdownText, style = MaterialTheme.typography.displayLarge)
+    }
+}
+
+/**
  * R-13: shown when this window's own policy is RESTORE and the phone was already
  * silent/vibrate before it started — without this, correctly staying silent (instead
  * of turning sound on) looks like the app is broken. R-14: schedule-driven windows get
@@ -367,6 +388,53 @@ private fun AlreadySilentPanel(onTurnSoundOn: (() -> Unit)?) {
                 OutlinedButton(onClick = onTurnSoundOn, shape = RoundedCornerShape(percent = 50)) {
                     Text(stringResource(R.string.dashboard_turn_sound_on), style = MaterialTheme.typography.labelMedium)
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Shown above the row list when every schedule exists but none is armed — matches
+ * design_handoff_silent_scheduler_android/SilentApp.dc.html's isAllOff panel exactly
+ * (surface2 background, a "Resume all" chip), distinct from [AlreadySilentPanel]'s
+ * accent-tinted secondaryContainer since this one isn't warning about anything.
+ */
+@Composable
+private fun AllSchedulesPausedPanel(onResumeAll: () -> Unit) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    stringResource(R.string.dashboard_all_off_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    stringResource(R.string.dashboard_all_off_body),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.surface,
+                modifier = Modifier.clickable(onClick = onResumeAll)
+            ) {
+                Text(
+                    stringResource(R.string.dashboard_resume_all),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }

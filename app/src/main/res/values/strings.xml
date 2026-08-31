@@ -40,10 +40,12 @@
     <string name="dashboard_end_silence_now">End silence now</string>
     <string name="dashboard_end_silence_caption">Sound returns automatically. No action needed.</string>
     <string name="dashboard_silent_now">Silent now</string>
-    <string name="dashboard_empty_title">No schedules yet</string>
-    <string name="dashboard_empty_subtitle">Tap + to add your first one</string>
     <string name="dashboard_now_badge">NOW</string>
     <string name="dashboard_silent_status">⊘ SILENT</string>
+    <string name="dashboard_sound_on_status">SOUND ON</string>
+    <string name="dashboard_all_off_title">All schedules paused</string>
+    <string name="dashboard_all_off_body">Nothing will silence automatically. Your windows are kept, just not armed.</string>
+    <string name="dashboard_resume_all">Resume all</string>
     <string name="dashboard_already_silent_warning">Your phone was already on silent before this window. It will go back to silent, not sound.</string>
     <string name="dashboard_turn_sound_on">Turn sound on</string>
 

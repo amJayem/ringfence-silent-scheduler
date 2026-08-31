@@ -67,8 +67,15 @@ data class ActiveCardState(
 data class DashboardUiState(
     val dayLabel: String = "",
     val active: ActiveCardState? = null,
-    val idleRemainingText: String? = null,
-    val idleUntilText: String? = null,
+    // Always populated (idleCountdownText is "—" when there's nothing to count down
+    // to) — the design keeps the same ring-shaped status card in every idle case,
+    // only swapping its kicker/countdown/sub text. The card used to switch to an
+    // entirely different, shorter layout whenever there was no next occurrence, so
+    // its height visibly jumped depending on whether any schedule happened to be
+    // armed — this keeps the card's shape constant regardless of schedule state.
+    val idleCountdownText: String = "—",
+    val idleSubText: String = "",
+    val isAllOff: Boolean = false,
     val rows: List<ScheduleRowUiState> = emptyList(),
     val enabledCount: Int = 0,
     val totalCount: Int = 0
@@ -180,16 +187,23 @@ class DashboardViewModel @Inject constructor(
             else -> null
         }
 
-        var idleRemainingText: String? = null
-        var idleUntilText: String? = null
-        if (active == null) {
+        var idleCountdownText = "—"
+        val idleSubText: String = if (active != null) {
+            ""
+        } else {
             val soonest = schedules
                 .mapNotNull { schedule -> occurrencesById[schedule.id]?.let { schedule to it } }
                 .minByOrNull { (_, occ) -> occ.start }
-            if (soonest != null) {
-                val (schedule, occ) = soonest
-                idleRemainingText = formatDurationMinutes(Duration.between(now, occ.start).toMinutes())
-                idleUntilText = "until ${schedule.label} at ${formatMinuteOfDay(schedule.startMinuteOfDay)}"
+            when {
+                soonest != null -> {
+                    val (schedule, occ) = soonest
+                    idleCountdownText = formatDurationMinutes(Duration.between(now, occ.start).toMinutes())
+                    "until ${schedule.label} at ${formatMinuteOfDay(schedule.startMinuteOfDay)}"
+                }
+                // Distinguishes "you paused every schedule" from "you've never made
+                // one" — both used to show the exact same "No schedules yet" message.
+                schedules.isNotEmpty() -> "All schedules are off"
+                else -> "No schedules yet"
             }
         }
 
@@ -219,8 +233,9 @@ class DashboardViewModel @Inject constructor(
         return DashboardUiState(
             dayLabel = dayLabel,
             active = active,
-            idleRemainingText = idleRemainingText,
-            idleUntilText = idleUntilText,
+            idleCountdownText = idleCountdownText,
+            idleSubText = idleSubText,
+            isAllOff = schedules.isNotEmpty() && schedules.none { it.isEnabled },
             rows = rows,
             enabledCount = schedules.count { it.isEnabled },
             totalCount = schedules.size
@@ -229,6 +244,15 @@ class DashboardViewModel @Inject constructor(
 
     fun toggleEnabled(schedule: Schedule) {
         viewModelScope.launch { repository.setEnabled(schedule.id, !schedule.isEnabled) }
+    }
+
+    /** The "All schedules paused" panel's quick-action — re-enables every schedule at once. */
+    fun resumeAll() {
+        viewModelScope.launch {
+            repository.observeSchedules().first()
+                .filter { !it.isEnabled }
+                .forEach { repository.setEnabled(it.id, true) }
+        }
     }
 
     fun endActiveNow() {

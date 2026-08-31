@@ -60,6 +60,7 @@ import com.ringfence.silentscheduler.schedule.domain.Schedule
 import com.ringfence.silentscheduler.schedule.domain.WEEKDAYS
 import com.ringfence.silentscheduler.schedule.domain.WEEKENDS
 import java.time.DayOfWeek
+import java.time.LocalDate
 import java.time.LocalTime
 import java.util.UUID
 
@@ -108,7 +109,12 @@ fun ScheduleEditScreen(
     var endMinuteOfDay by remember(initial) {
         mutableIntStateOf(initial?.endMinuteOfDay ?: (defaultStartMinuteOfDay + 60) % (24 * 60))
     }
-    var repeatDays by remember(initial) { mutableStateOf(initial?.repeatDays ?: emptySet()) }
+    // A brand-new schedule starts with today pre-selected rather than nothing — an
+    // empty set only ever forced the user to clear the "Select at least one day"
+    // error before Save was even reachable, for no benefit over a sensible default.
+    var repeatDays by remember(initial) {
+        mutableStateOf(initial?.repeatDays ?: setOf(LocalDate.now().dayOfWeek))
+    }
     val isEnabled = remember(initial) { initial?.isEnabled ?: true }
 
     val defaultSilenceStyle by formViewModel.defaultSilenceStyle.collectAsState()

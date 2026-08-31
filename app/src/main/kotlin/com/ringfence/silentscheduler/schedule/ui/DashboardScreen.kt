@@ -53,6 +53,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -335,7 +336,8 @@ private fun ActiveCountdownRing(
             color = MaterialTheme.colorScheme.primary
         )
         Spacer(Modifier.height(4.dp))
-        Text(formatActiveCountdown(remainingSeconds.coerceAtLeast(0)), style = MaterialTheme.typography.displayLarge)
+        val countdownText = formatActiveCountdown(remainingSeconds.coerceAtLeast(0))
+        Text(countdownText, style = countdownTextStyle(countdownText, compact), maxLines = 1)
     }
 }
 
@@ -355,7 +357,25 @@ private fun IdleStatusRing(countdownText: String, compact: Boolean) {
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(Modifier.height(4.dp))
-        Text(countdownText, style = MaterialTheme.typography.displayLarge)
+        Text(countdownText, style = countdownTextStyle(countdownText, compact), maxLines = 1)
+    }
+}
+
+/**
+ * displayLarge (40sp) is sized for a short countdown like "51:27" or "—" — the
+ * longer "Xh Ym" form (used past the first hour, active or idle) is wide enough at
+ * that size to spill past the ring's own stroke instead of staying inside it, since
+ * both [ActiveCountdownRing] and [IdleStatusRing] draw this text over a fixed-size
+ * ring rather than one that grows with its content.
+ */
+@Composable
+private fun countdownTextStyle(text: String, compact: Boolean): TextStyle {
+    val base = MaterialTheme.typography.displayLarge
+    val isLongForm = text.contains('h')
+    return when {
+        isLongForm && compact -> base.copy(fontSize = 22.sp)
+        isLongForm -> base.copy(fontSize = 28.sp)
+        else -> base
     }
 }
 

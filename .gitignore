@@ -14,3 +14,9 @@
 # unlike DESIGN_NOTES.md, which we maintain ourselves): re-audit from these,
 # don't track them.
 design_handoff_silent_scheduler_android/
+
+# Leftover from an ntfs3 stale-file-handle corruption of .git on 2026-09-01,
+# recovered by swapping in a fresh clone from origin — a few of its files are
+# themselves unreadable (same stale-handle issue) so it can't be deleted, only
+# ignored. Safe to remove once the drive lets you.
+.git.broken/

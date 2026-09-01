@@ -113,6 +113,14 @@ private fun SmallWidgetContent(state: WidgetUiState) {
 
 @Composable
 private fun WideWidgetContent(state: WidgetUiState) {
+    // The header row's kicker+subtext column only gets whatever's left after the
+    // icon and the (often long, e.g. "10:30 AM") bigText are measured — on a real,
+    // narrow placement that leftover was down to a few characters, truncating even
+    // the short constant "SOUND ON"/"SILENT" kicker. Subtext gets its own full-width
+    // row instead so it's never fighting bigText for the same sliver of space; the
+    // footer only renders if the real height comfortably fits it, rather than
+    // risking the same clipping that happened when it was always assumed to fit.
+    val showFooter = LocalSize.current.height > 105.dp
     Column(
         modifier = GlanceModifier
             .fillMaxSize()
@@ -126,20 +134,20 @@ private fun WideWidgetContent(state: WidgetUiState) {
         ) {
             StatusIcon(silent = state.silent, size = 24.dp)
             Spacer(GlanceModifier.width(8.dp))
-            Column(modifier = GlanceModifier.defaultWeight()) {
-                KickerText(state.kicker, state.silent)
-                Text(
-                    state.subText,
-                    maxLines = 1,
-                    style = TextStyle(fontSize = 11.5.sp, fontWeight = FontWeight.Medium, color = textColor())
-                )
-            }
+            KickerText(state.kicker, state.silent, modifier = GlanceModifier.defaultWeight())
             Text(
                 state.bigText,
                 maxLines = 1,
                 style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium, color = textColor())
             )
         }
+        Spacer(GlanceModifier.height(3.dp))
+        Text(
+            state.subText,
+            maxLines = 1,
+            style = TextStyle(fontSize = 11.5.sp, fontWeight = FontWeight.Medium, color = textColor()),
+            modifier = GlanceModifier.fillMaxWidth()
+        )
         Spacer(GlanceModifier.height(6.dp))
         Row(modifier = GlanceModifier.fillMaxWidth()) {
             state.chips.forEachIndexed { index, chip ->
@@ -147,13 +155,15 @@ private fun WideWidgetContent(state: WidgetUiState) {
                 DurationChip(chip = chip, modifier = GlanceModifier.defaultWeight())
             }
         }
-        Spacer(GlanceModifier.height(4.dp))
-        Text(
-            state.footerText,
-            maxLines = 1,
-            style = TextStyle(fontSize = 9.sp, color = dimColor(), textAlign = TextAlign.Center),
-            modifier = GlanceModifier.fillMaxWidth()
-        )
+        if (showFooter) {
+            Spacer(GlanceModifier.height(4.dp))
+            Text(
+                state.footerText,
+                maxLines = 1,
+                style = TextStyle(fontSize = 9.sp, color = dimColor(), textAlign = TextAlign.Center),
+                modifier = GlanceModifier.fillMaxWidth()
+            )
+        }
     }
 }
 
@@ -176,10 +186,11 @@ private fun StatusIcon(silent: Boolean, size: Dp) {
 }
 
 @Composable
-private fun KickerText(kicker: String, silent: Boolean) {
+private fun KickerText(kicker: String, silent: Boolean, modifier: GlanceModifier = GlanceModifier) {
     Text(
         kicker,
         maxLines = 1,
+        modifier = modifier,
         style = TextStyle(
             fontSize = 9.sp,
             fontWeight = FontWeight.Medium,

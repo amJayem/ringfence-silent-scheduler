@@ -66,6 +66,7 @@ dependencies {
     implementation(libs.datastore)
     implementation(libs.protobuf.kotlin.lite)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.glance.appwidget)
 
     testImplementation(libs.junit)
 }

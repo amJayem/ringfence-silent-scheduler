@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import com.ringfence.silentscheduler.widget.WidgetTickScheduler
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -33,7 +34,8 @@ private object Keys {
 @Singleton
 class SilencerCoordinator @Inject constructor(
     private val ringerModeController: RingerModeController,
-    private val dataStore: DataStore<Preferences>
+    private val dataStore: DataStore<Preferences>,
+    private val widgetTickScheduler: WidgetTickScheduler
 ) {
     /** Non-null only while at least one window is currently silencing. */
     fun observeGlobalPriorMode(): Flow<Int?> = dataStore.data.map { prefs ->
@@ -42,14 +44,20 @@ class SilencerCoordinator @Inject constructor(
 
     /** Call when a window (schedule occurrence or quick session) starts silencing. */
     suspend fun onWindowStart(style: SilenceStyle) {
+        var wasIdle = false
         dataStore.edit { prefs ->
             val count = prefs[Keys.ACTIVE_COUNT] ?: 0
-            if (count == 0) {
+            wasIdle = count == 0
+            if (wasIdle) {
                 prefs[Keys.GLOBAL_PRIOR_MODE] = ringerModeController.currentMode
             }
             prefs[Keys.ACTIVE_COUNT] = count + 1
         }
         ringerModeController.silence(style)
+        // The widget's countdown needs to keep visibly ticking down while a window
+        // runs — only start the tick loop on the 0->1 transition (already running
+        // for any subsequent overlapping window).
+        if (wasIdle) widgetTickScheduler.start()
     }
 
     /**
@@ -73,6 +81,10 @@ class SilencerCoordinator @Inject constructor(
             prefs[Keys.ACTIVE_COUNT] = count
         }
         restoredMode?.let { ringerModeController.setMode(it) }
+        // The ->0 transition (returned a non-null mode) means nothing is silencing
+        // anymore — stop waking the device every minute for a countdown that no
+        // longer exists.
+        if (restoredMode != null) widgetTickScheduler.stop()
         return restoredMode
     }
 }

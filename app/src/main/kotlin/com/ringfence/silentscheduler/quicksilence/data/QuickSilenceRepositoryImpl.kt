@@ -15,6 +15,7 @@ import com.ringfence.silentscheduler.core.ringer.toFriendlyRingerModeName
 import com.ringfence.silentscheduler.quicksilence.domain.QuickSilenceRepository
 import com.ringfence.silentscheduler.quicksilence.domain.QuickSilenceState
 import com.ringfence.silentscheduler.settings.domain.SettingsRepository
+import com.ringfence.silentscheduler.widget.WidgetRefresher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -36,7 +37,8 @@ class QuickSilenceRepositoryImpl @Inject constructor(
     private val dataStore: DataStore<Preferences>,
     private val alarmScheduler: SilenceAlarmScheduler,
     private val settingsRepository: SettingsRepository,
-    private val silenceNotifier: SilenceNotifier
+    private val silenceNotifier: SilenceNotifier,
+    private val widgetRefresher: WidgetRefresher
 ) : QuickSilenceRepository {
 
     override fun observeState(): Flow<QuickSilenceState> = dataStore.data.map { prefs ->
@@ -66,6 +68,7 @@ class QuickSilenceRepositoryImpl @Inject constructor(
         silencerCoordinator.onWindowStart(settings.silenceStyle)
         silenceNotifier.notifySilenceStarted(QUICK_SILENCE_LABEL, settings.notificationStyle, endTime, SilenceEndAction.QuickSilence)
         alarmScheduler.scheduleRevert(endTime)
+        widgetRefresher.refresh()
     }
 
     override suspend fun revertSilence() {
@@ -81,6 +84,7 @@ class QuickSilenceRepositoryImpl @Inject constructor(
             silenceNotifier.notifySilenceEnded(QUICK_SILENCE_LABEL, notificationStyle, restoredMode.toFriendlyRingerModeName())
         }
         alarmScheduler.cancelRevert()
+        widgetRefresher.refresh()
     }
 
     override suspend fun reconcileIfExpired() {

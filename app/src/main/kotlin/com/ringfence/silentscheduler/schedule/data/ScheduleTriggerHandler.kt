@@ -13,6 +13,7 @@ import com.ringfence.silentscheduler.core.ringer.SilencerCoordinator
 import com.ringfence.silentscheduler.core.ringer.toFriendlyRingerModeName
 import com.ringfence.silentscheduler.schedule.domain.RecurringScheduleCalculator
 import com.ringfence.silentscheduler.settings.domain.SettingsRepository
+import com.ringfence.silentscheduler.widget.WidgetRefresher
 import kotlinx.coroutines.flow.first
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -42,7 +43,8 @@ class ScheduleTriggerHandler @Inject constructor(
     private val alarmScheduler: ScheduleAlarmScheduler,
     private val preferencesDataStore: DataStore<Preferences>,
     private val settingsRepository: SettingsRepository,
-    private val silenceNotifier: SilenceNotifier
+    private val silenceNotifier: SilenceNotifier,
+    private val widgetRefresher: WidgetRefresher
 ) {
     /**
      * Idempotent: if this schedule is already tracked as one of the active windows,
@@ -73,6 +75,7 @@ class ScheduleTriggerHandler @Inject constructor(
             SilenceEndAction.Schedule(scheduleId)
         )
         Log.i(TAG, "START $scheduleId: now silencing")
+        widgetRefresher.refresh()
     }
 
     suspend fun handleEnd(scheduleId: String, referenceTimeForRearm: LocalDateTime) {
@@ -103,6 +106,7 @@ class ScheduleTriggerHandler @Inject constructor(
         } else {
             Log.i(TAG, "END $scheduleId: schedule missing or disabled, not re-arming")
         }
+        widgetRefresher.refresh()
     }
 
     /**

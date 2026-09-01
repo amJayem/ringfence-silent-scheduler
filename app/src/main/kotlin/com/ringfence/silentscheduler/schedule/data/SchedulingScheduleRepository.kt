@@ -3,6 +3,7 @@ package com.ringfence.silentscheduler.schedule.data
 import com.ringfence.silentscheduler.schedule.domain.RecurringScheduleCalculator
 import com.ringfence.silentscheduler.schedule.domain.Schedule
 import com.ringfence.silentscheduler.schedule.domain.ScheduleRepository
+import com.ringfence.silentscheduler.widget.WidgetRefresher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import java.time.LocalDateTime
@@ -19,7 +20,8 @@ import javax.inject.Singleton
 class SchedulingScheduleRepository @Inject constructor(
     private val delegate: ScheduleRepositoryImpl,
     private val alarmScheduler: ScheduleAlarmScheduler,
-    private val triggerHandler: ScheduleTriggerHandler
+    private val triggerHandler: ScheduleTriggerHandler,
+    private val widgetRefresher: WidgetRefresher
 ) : ScheduleRepository {
 
     override fun observeSchedules(): Flow<List<Schedule>> = delegate.observeSchedules()
@@ -27,11 +29,13 @@ class SchedulingScheduleRepository @Inject constructor(
     override suspend fun addOrUpdateSchedule(schedule: Schedule) {
         delegate.addOrUpdateSchedule(schedule)
         rearm(schedule)
+        widgetRefresher.refresh()
     }
 
     override suspend fun deleteSchedule(id: String) {
         delegate.deleteSchedule(id)
         disable(id)
+        widgetRefresher.refresh()
     }
 
     override suspend fun setEnabled(id: String, isEnabled: Boolean) {
@@ -39,9 +43,10 @@ class SchedulingScheduleRepository @Inject constructor(
         val schedule = delegate.observeSchedules().first().find { it.id == id }
         if (schedule == null) {
             disable(id)
-            return
+        } else {
+            rearm(schedule)
         }
-        rearm(schedule)
+        widgetRefresher.refresh()
     }
 
     private suspend fun rearm(schedule: Schedule) {

@@ -5,7 +5,6 @@ import androidx.glance.GlanceId
 import androidx.glance.action.ActionParameters
 import androidx.glance.appwidget.action.ActionCallback
 import dagger.hilt.android.EntryPointAccessors
-import kotlinx.coroutines.flow.first
 
 private fun entryPoint(context: Context): WidgetEntryPoint =
     EntryPointAccessors.fromApplication(context, WidgetEntryPoint::class.java)
@@ -18,13 +17,11 @@ private fun entryPoint(context: Context): WidgetEntryPoint =
  */
 class ToggleSilenceAction : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
-        val entry = entryPoint(context)
-        val state = entry.widgetStateProvider().buildState()
-        if (state.silent) {
-            entry.widgetActionHandler().endActiveSilence()
+        val handler = entryPoint(context).widgetActionHandler()
+        if (handler.isCurrentlySilent()) {
+            handler.endActiveSilence()
         } else {
-            val defaultMinutes = entry.settingsRepository().observeSettings().first().defaultDurationMinutes
-            entry.widgetActionHandler().startQuickSilence(defaultMinutes)
+            handler.startQuickSilenceWithDefaultDuration()
         }
     }
 }

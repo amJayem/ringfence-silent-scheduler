@@ -141,14 +141,19 @@ private fun WideWidgetContent(state: WidgetUiState) {
                 style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium, color = textColor())
             )
         }
-        Spacer(GlanceModifier.height(3.dp))
+        // Weighted rather than fixed: on the default (small-ish) placement these
+        // collapse close to their floor, same as before — but on a larger placement
+        // the widget is now freely resizable to, the extra room becomes breathing
+        // space between sections instead of the fixed-height content just floating
+        // in a stretched, sparse-looking card.
+        Spacer(GlanceModifier.defaultWeight())
         Text(
             state.subText,
             maxLines = 1,
             style = TextStyle(fontSize = 11.5.sp, fontWeight = FontWeight.Medium, color = textColor()),
             modifier = GlanceModifier.fillMaxWidth()
         )
-        Spacer(GlanceModifier.height(6.dp))
+        Spacer(GlanceModifier.defaultWeight())
         Row(modifier = GlanceModifier.fillMaxWidth()) {
             state.chips.forEachIndexed { index, chip ->
                 if (index > 0) Spacer(GlanceModifier.width(6.dp))
@@ -156,7 +161,7 @@ private fun WideWidgetContent(state: WidgetUiState) {
             }
         }
         if (showFooter) {
-            Spacer(GlanceModifier.height(4.dp))
+            Spacer(GlanceModifier.defaultWeight())
             Text(
                 state.footerText,
                 maxLines = 1,

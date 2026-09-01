@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Light-theme values, transcribed from design_handoff_silent_scheduler_android's
+     AndroidSurface.dc.html widget mockup tokens (not sampled). Glance's ColorProvider
+     only accepts a single Color or a resource id — day/night switching has to go
+     through this file's values-night/ counterpart, matching Android's own resource
+     qualification system, so Glance can pick the right one per render automatically. -->
+<resources>
+    <color name="widget_surface">#FFFFFF</color>
+    <color name="widget_silent_surface">#FFFFFF</color>
+    <color name="widget_surface2">#EAE8E4</color>
+    <color name="widget_text">#17171A</color>
+    <color name="widget_dim">#8E17171A</color>
+    <color name="widget_faint">#5717171A</color>
+    <color name="widget_accent">#7C86C6</color>
+    <color name="widget_accent_soft">#247C86C6</color>
+</resources>

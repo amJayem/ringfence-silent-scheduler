@@ -120,4 +120,14 @@
     <string name="notification_silence_ended_title">%1$s — Sound restored</string>
     <string name="notification_silence_ended_text">Ringer restored to %1$s.</string>
     <string name="notification_action_end_silence">End silence</string>
+
+    <string name="widget_status_silent">SILENT</string>
+    <string name="widget_status_sound_on">SOUND ON</string>
+    <string name="widget_next_format">Next: %1$s, %2$s</string>
+    <string name="widget_until_format">%1$s · til %2$s</string>
+    <string name="widget_no_schedules">No schedules yet</string>
+    <string name="widget_all_off">All schedules are off</string>
+    <string name="widget_footer_silent">Tap the ring to end early</string>
+    <string name="widget_footer_sound_on">Tap a duration to silence</string>
+    <string name="widget_placeholder_value">—</string>
 </resources>

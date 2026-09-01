@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 124x54dp = a nominal 2 columns x 1 row cell footprint (70dp/cell - 16dp gap),
+     matching W-01/W-02's 2x1 size. resizeMode="vertical" lets the user grow it to
+     2 columns x 2 rows (124x124dp) to reveal the duration chips (W-07) without ever
+     letting it go wider, since the design only ever defines these two exact states. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="124dp"
+    android:minHeight="54dp"
+    android:targetCellWidth="2"
+    android:targetCellHeight="1"
+    android:resizeMode="vertical"
+    android:minResizeWidth="124dp"
+    android:minResizeHeight="54dp"
+    android:maxResizeWidth="124dp"
+    android:maxResizeHeight="124dp"
+    android:updatePeriodMillis="1800000"
+    android:widgetCategory="home_screen"
+    android:previewImage="@mipmap/ic_launcher"
+    android:initialLayout="@layout/quick_silence_widget_loading" />

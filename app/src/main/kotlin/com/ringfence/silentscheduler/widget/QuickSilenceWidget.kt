@@ -90,10 +90,9 @@ class QuickSilenceSmallWidget : GlanceAppWidget() {
 
 @Composable
 private fun SmallWidgetContent(state: WidgetUiState) {
-    // The icon is the toggle "button" — its own click, sized to its own bounds, not
-    // the whole row — and the text column opens the app, so a tap anywhere on the
-    // card does something deliberate rather than the entire surface being one
-    // undifferentiated toggle target.
+    // Icon + text together are the toggle "button" — one shared click on the row that
+    // wraps both, so there's no dead gap between them — and a small dedicated icon
+    // opens the app, same split the wide widget uses.
     Row(
         modifier = GlanceModifier
             .fillMaxSize()
@@ -102,27 +101,30 @@ private fun SmallWidgetContent(state: WidgetUiState) {
             .padding(horizontal = 14.dp, vertical = 6.dp),
         verticalAlignment = Alignment.Vertical.CenterVertically
     ) {
-        Box(modifier = GlanceModifier.toggleClickModifier(state)) {
-            StatusIcon(silent = state.silent, size = 32.dp)
-        }
-        Spacer(GlanceModifier.width(10.dp))
-        Column(
+        Row(
             modifier = GlanceModifier
                 .defaultWeight()
-                .clickable(actionStartActivity(Intent(LocalContext.current, MainActivity::class.java)))
+                .toggleClickModifier(state),
+            verticalAlignment = Alignment.Vertical.CenterVertically
         ) {
-            KickerText(state.kicker, state.silent)
-            Text(
-                state.bigText,
-                maxLines = 1,
-                style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Medium, color = textColor())
-            )
-            Text(
-                state.subText,
-                maxLines = 1,
-                style = TextStyle(fontSize = 10.sp, color = dimColor())
-            )
+            StatusIcon(silent = state.silent, size = 32.dp)
+            Spacer(GlanceModifier.width(10.dp))
+            Column(modifier = GlanceModifier.defaultWeight()) {
+                KickerText(state.kicker, state.silent)
+                Text(
+                    state.bigText,
+                    maxLines = 1,
+                    style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Medium, color = textColor())
+                )
+                Text(
+                    state.subText,
+                    maxLines = 1,
+                    style = TextStyle(fontSize = 10.sp, color = dimColor())
+                )
+            }
         }
+        Spacer(GlanceModifier.width(6.dp))
+        OpenAppIcon()
     }
 }
 

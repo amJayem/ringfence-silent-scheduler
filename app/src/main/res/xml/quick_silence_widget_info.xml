@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Placed at a 3x2 cell footprint by default (194x124dp, 70dp/cell - 16dp gap) —
-     noticeably bigger than the original bare-minimum 2x1. Width-only resize: height
-     is fixed by targetCellHeight since the wide layout's own content (header, chips,
-     footer) needs a specific, predictable amount of vertical room to all fit — only
+<!-- Placed at a 3x1 cell footprint by default — the same row height as the compact
+     widget (quick_silence_small_widget_info.xml), not the taller 2-row footprint this
+     used to request. The header+chips content already fits a 1-row placement's real
+     height comfortably (its gaps are flexible spacers, and the footer only renders
+     when there's room to spare), and a shorter card was requested over the extra,
+     mostly-empty vertical space the 2-row version left. Width-only resize: only
      width is meant to grow, up to the full screen, so resizeMode omits "vertical".
      maxResizeWidth is set well past any real phone's screen width — the OS clamps
      actual dragging to the physical screen and grid regardless, so the ceiling here
@@ -11,7 +13,7 @@
     android:minWidth="124dp"
     android:minHeight="54dp"
     android:targetCellWidth="3"
-    android:targetCellHeight="2"
+    android:targetCellHeight="1"
     android:resizeMode="horizontal"
     android:minResizeWidth="124dp"
     android:maxResizeWidth="700dp"

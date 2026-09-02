@@ -90,18 +90,27 @@ class QuickSilenceSmallWidget : GlanceAppWidget() {
 
 @Composable
 private fun SmallWidgetContent(state: WidgetUiState) {
+    // The icon is the toggle "button" — its own click, sized to its own bounds, not
+    // the whole row — and the text column opens the app, so a tap anywhere on the
+    // card does something deliberate rather than the entire surface being one
+    // undifferentiated toggle target.
     Row(
         modifier = GlanceModifier
             .fillMaxSize()
             .background(widgetBackground(state.silent))
             .cornerRadius(24.dp)
-            .padding(horizontal = 14.dp, vertical = 6.dp)
-            .toggleClickModifier(state),
+            .padding(horizontal = 14.dp, vertical = 6.dp),
         verticalAlignment = Alignment.Vertical.CenterVertically
     ) {
-        StatusIcon(silent = state.silent, size = 32.dp)
+        Box(modifier = GlanceModifier.toggleClickModifier(state)) {
+            StatusIcon(silent = state.silent, size = 32.dp)
+        }
         Spacer(GlanceModifier.width(10.dp))
-        Column(modifier = GlanceModifier.defaultWeight()) {
+        Column(
+            modifier = GlanceModifier
+                .defaultWeight()
+                .clickable(actionStartActivity(Intent(LocalContext.current, MainActivity::class.java)))
+        ) {
             KickerText(state.kicker, state.silent)
             Text(
                 state.bigText,

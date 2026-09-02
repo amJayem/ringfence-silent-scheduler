@@ -33,3 +33,12 @@ class StartChipDurationAction : ActionCallback {
         entryPoint(context).widgetActionHandler().startQuickSilence(minutes)
     }
 }
+
+/**
+ * Attached to the wide widget's interior content area so a tap on the gaps between
+ * sections does nothing, rather than bubbling through to the outer card's
+ * open-the-app click meant only for its exposed border ring.
+ */
+class NoOpAction : ActionCallback {
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) = Unit
+}

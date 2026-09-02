@@ -4,8 +4,10 @@
      both directions afterward, since SizeMode.Exact in QuickSilenceWidget renders
      against whatever real size it's actually given rather than assuming a fixed one.
      minWidth/minHeight stay at the original 2x1 floor so it can still be shrunk back
-     down if wanted. maxResizeWidth comfortably covers a 5-column-wide placement even
-     on a launcher whose grid cells run noticeably bigger than this device's ~70dp. -->
+     down if wanted. maxResizeWidth/Height are set well past any real phone's screen
+     size — the OS clamps actual dragging to the physical screen and grid regardless,
+     so a generous ceiling here just means the cap is never what stops the user from
+     reaching full screen width (or a much taller card) themselves. -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:minWidth="124dp"
     android:minHeight="54dp"
@@ -14,8 +16,8 @@
     android:resizeMode="horizontal|vertical"
     android:minResizeWidth="124dp"
     android:minResizeHeight="54dp"
-    android:maxResizeWidth="480dp"
-    android:maxResizeHeight="260dp"
+    android:maxResizeWidth="700dp"
+    android:maxResizeHeight="500dp"
     android:updatePeriodMillis="1800000"
     android:widgetCategory="home_screen"
     android:previewImage="@mipmap/ic_launcher"

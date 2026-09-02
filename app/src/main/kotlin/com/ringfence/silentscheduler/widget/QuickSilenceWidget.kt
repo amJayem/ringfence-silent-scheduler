@@ -123,56 +123,70 @@ private fun WideWidgetContent(state: WidgetUiState) {
     // height comfortably fits it, since resizeMode also allows a short 2-row widget
     // where there just isn't room for a fourth line.
     val showFooter = LocalSize.current.height > 105.dp
-    Column(
+    // Most taps on this widget are meant to set a quick duration or toggle from the
+    // header — "open the app" needs to be reachable, but not so easy to trigger by
+    // accident that it gets in the way of that primary use. So only a thin border
+    // ring opens the app: the outer Box's own background+click covers the full card,
+    // and the inner content Column is inset from it by BORDER_WIDTH with a click of
+    // its own that swallows taps silently — that inner click's hit area is its own
+    // (smaller, inset) bounds, so it never reaches past that ring, leaving only the
+    // ring itself exposed to the outer Box underneath.
+    Box(
         modifier = GlanceModifier
             .fillMaxSize()
             .background(widgetBackground(state.silent))
             .cornerRadius(28.dp)
-            // Free-space fallback: any tap not already claimed by the header row or
-            // a chip below (the padding, and the gaps between sections) opens the
-            // app instead of doing nothing.
             .clickable(actionStartActivity(Intent(LocalContext.current, MainActivity::class.java)))
-            .padding(14.dp)
     ) {
-        Row(
-            modifier = GlanceModifier.fillMaxWidth().toggleClickModifier(state),
-            verticalAlignment = Alignment.Vertical.CenterVertically
+        Column(
+            modifier = GlanceModifier
+                .padding(BORDER_WIDTH)
+                .fillMaxSize()
+                .clickable(actionRunCallback<NoOpAction>())
+                .padding(4.dp)
         ) {
-            StatusIcon(silent = state.silent, size = 30.dp)
-            Spacer(GlanceModifier.width(10.dp))
-            Column(modifier = GlanceModifier.defaultWeight()) {
-                KickerText(state.kicker, state.silent)
+            Row(
+                modifier = GlanceModifier.fillMaxWidth().toggleClickModifier(state),
+                verticalAlignment = Alignment.Vertical.CenterVertically
+            ) {
+                StatusIcon(silent = state.silent, size = 30.dp)
+                Spacer(GlanceModifier.width(10.dp))
+                Column(modifier = GlanceModifier.defaultWeight()) {
+                    KickerText(state.kicker, state.silent)
+                    Text(
+                        state.subText,
+                        maxLines = 1,
+                        style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold, color = textColor())
+                    )
+                }
+                Spacer(GlanceModifier.width(6.dp))
                 Text(
-                    state.subText,
+                    state.bigText,
                     maxLines = 1,
-                    style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold, color = textColor())
+                    style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Medium, color = textColor())
                 )
             }
-            Spacer(GlanceModifier.width(6.dp))
-            Text(
-                state.bigText,
-                maxLines = 1,
-                style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Medium, color = textColor())
-            )
-        }
-        Spacer(GlanceModifier.defaultWeight())
-        Row(modifier = GlanceModifier.fillMaxWidth()) {
-            state.chips.forEachIndexed { index, chip ->
-                if (index > 0) Spacer(GlanceModifier.width(8.dp))
-                DurationChip(chip = chip, modifier = GlanceModifier.defaultWeight())
-            }
-        }
-        if (showFooter) {
             Spacer(GlanceModifier.defaultWeight())
-            Text(
-                state.footerText,
-                maxLines = 1,
-                style = TextStyle(fontSize = 10.sp, color = dimColor(), textAlign = TextAlign.Center),
-                modifier = GlanceModifier.fillMaxWidth()
-            )
+            Row(modifier = GlanceModifier.fillMaxWidth()) {
+                state.chips.forEachIndexed { index, chip ->
+                    if (index > 0) Spacer(GlanceModifier.width(8.dp))
+                    DurationChip(chip = chip, modifier = GlanceModifier.defaultWeight())
+                }
+            }
+            if (showFooter) {
+                Spacer(GlanceModifier.defaultWeight())
+                Text(
+                    state.footerText,
+                    maxLines = 1,
+                    style = TextStyle(fontSize = 10.sp, color = dimColor(), textAlign = TextAlign.Center),
+                    modifier = GlanceModifier.fillMaxWidth()
+                )
+            }
         }
     }
 }
+
+private val BORDER_WIDTH = 12.dp
 
 @Composable
 private fun StatusIcon(silent: Boolean, size: Dp) {

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- W-01/W-02's compact 1-row widget (6a/6b), placed at 124x54dp (2x1 cells) by
+     default. Width-only resize, same reasoning as the wide widget's info file: the
+     content is one row (icon + status text) that only ever needs more width to show
+     more of the sub-text before it ellipsizes, never more height. maxResizeWidth is
+     set well past any real screen width — the OS clamps actual dragging to the
+     physical screen and grid regardless. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="124dp"
+    android:minHeight="54dp"
+    android:targetCellWidth="2"
+    android:targetCellHeight="1"
+    android:resizeMode="horizontal"
+    android:minResizeWidth="124dp"
+    android:maxResizeWidth="700dp"
+    android:updatePeriodMillis="1800000"
+    android:widgetCategory="home_screen"
+    android:previewImage="@mipmap/ic_launcher"
+    android:initialLayout="@layout/quick_silence_widget_loading" />

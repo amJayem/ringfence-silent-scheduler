@@ -113,50 +113,52 @@ private fun SmallWidgetContent(state: WidgetUiState) {
 
 @Composable
 private fun WideWidgetContent(state: WidgetUiState) {
-    // The header row's kicker+subtext column only gets whatever's left after the
-    // icon and the (often long, e.g. "10:30 AM") bigText are measured — on a real,
-    // narrow placement that leftover was down to a few characters, truncating even
-    // the short constant "SOUND ON"/"SILENT" kicker. Subtext gets its own full-width
-    // row instead so it's never fighting bigText for the same sliver of space; the
-    // footer only renders if the real height comfortably fits it, rather than
-    // risking the same clipping that happened when it was always assumed to fit.
+    // Matches AndroidSurface.dc.html's widget-wide markup: icon + a kicker/headline
+    // column + the big value, all sharing one header row (its headline column
+    // ellipsizes on overflow, same as the design's own text-overflow:ellipsis — that
+    // is the designed behavior for a narrow placement, not a bug to route around).
+    // Now that the widget can be resized up to 5 columns wide, a real placement is
+    // much closer to the design's own 392px-wide canvas, so ellipsis should be the
+    // rare case rather than the default. The footer still only renders if the real
+    // height comfortably fits it, since resizeMode also allows a short 2-row widget
+    // where there just isn't room for a fourth line.
     val showFooter = LocalSize.current.height > 105.dp
     Column(
         modifier = GlanceModifier
             .fillMaxSize()
             .background(widgetBackground(state.silent))
-            .cornerRadius(26.dp)
-            .padding(10.dp)
+            .cornerRadius(28.dp)
+            // Free-space fallback: any tap not already claimed by the header row or
+            // a chip below (the padding, and the gaps between sections) opens the
+            // app instead of doing nothing.
+            .clickable(actionStartActivity(Intent(LocalContext.current, MainActivity::class.java)))
+            .padding(14.dp)
     ) {
         Row(
             modifier = GlanceModifier.fillMaxWidth().toggleClickModifier(state),
             verticalAlignment = Alignment.Vertical.CenterVertically
         ) {
-            StatusIcon(silent = state.silent, size = 24.dp)
-            Spacer(GlanceModifier.width(8.dp))
-            KickerText(state.kicker, state.silent, modifier = GlanceModifier.defaultWeight())
+            StatusIcon(silent = state.silent, size = 30.dp)
+            Spacer(GlanceModifier.width(10.dp))
+            Column(modifier = GlanceModifier.defaultWeight()) {
+                KickerText(state.kicker, state.silent)
+                Text(
+                    state.subText,
+                    maxLines = 1,
+                    style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold, color = textColor())
+                )
+            }
+            Spacer(GlanceModifier.width(6.dp))
             Text(
                 state.bigText,
                 maxLines = 1,
-                style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium, color = textColor())
+                style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Medium, color = textColor())
             )
         }
-        // Weighted rather than fixed: on the default (small-ish) placement these
-        // collapse close to their floor, same as before — but on a larger placement
-        // the widget is now freely resizable to, the extra room becomes breathing
-        // space between sections instead of the fixed-height content just floating
-        // in a stretched, sparse-looking card.
-        Spacer(GlanceModifier.defaultWeight())
-        Text(
-            state.subText,
-            maxLines = 1,
-            style = TextStyle(fontSize = 11.5.sp, fontWeight = FontWeight.Medium, color = textColor()),
-            modifier = GlanceModifier.fillMaxWidth()
-        )
         Spacer(GlanceModifier.defaultWeight())
         Row(modifier = GlanceModifier.fillMaxWidth()) {
             state.chips.forEachIndexed { index, chip ->
-                if (index > 0) Spacer(GlanceModifier.width(6.dp))
+                if (index > 0) Spacer(GlanceModifier.width(8.dp))
                 DurationChip(chip = chip, modifier = GlanceModifier.defaultWeight())
             }
         }
@@ -165,7 +167,7 @@ private fun WideWidgetContent(state: WidgetUiState) {
             Text(
                 state.footerText,
                 maxLines = 1,
-                style = TextStyle(fontSize = 9.sp, color = dimColor(), textAlign = TextAlign.Center),
+                style = TextStyle(fontSize = 10.sp, color = dimColor(), textAlign = TextAlign.Center),
                 modifier = GlanceModifier.fillMaxWidth()
             )
         }
@@ -208,16 +210,16 @@ private fun KickerText(kicker: String, silent: Boolean, modifier: GlanceModifier
 private fun DurationChip(chip: WidgetChip, modifier: GlanceModifier) {
     Box(
         modifier = modifier
-            .height(32.dp)
+            .height(40.dp)
             .background(if (chip.isDefault) accentSoftColor() else surface2Color())
-            .cornerRadius(12.dp)
+            .cornerRadius(15.dp)
             .clickable(actionRunCallback<StartChipDurationAction>(actionParametersOf(ChipMinutesKey to chip.minutes))),
         contentAlignment = Alignment.Center
     ) {
         Text(
             chip.label,
             style = TextStyle(
-                fontSize = 12.sp,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
                 color = if (chip.isDefault) accentColor() else textColor()
             )

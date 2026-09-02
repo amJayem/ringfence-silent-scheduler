@@ -202,10 +202,15 @@ private fun WideWidgetContent(state: WidgetUiState) {
 
 @Composable
 private fun OpenAppIcon() {
+    // The clickable area is deliberately bigger than the icon graphic itself — a
+    // 22dp tap target (the icon's own visual size) was hard to land a finger on
+    // reliably; Android's own guidance calls for touch targets closer to 48dp.
+    // The glyph stays the same visual size, just with more forgiving padding
+    // around it before a tap counts as a miss.
     Box(
         modifier = GlanceModifier
-            .size(22.dp)
-            .cornerRadius(11.dp)
+            .size(36.dp)
+            .cornerRadius(18.dp)
             .clickable(actionStartActivity(Intent(LocalContext.current, MainActivity::class.java))),
         contentAlignment = Alignment.Center
     ) {

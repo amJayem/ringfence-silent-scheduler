@@ -44,9 +44,14 @@ import com.ringfence.silentscheduler.R
 import dagger.hilt.android.EntryPointAccessors
 
 /**
- * Renders both W-01/W-02 (2x1: icon + kicker + big value + sub) and W-07 (2x2: same
- * header, plus the four duration chips) from design_handoff_silent_scheduler_android's
- * AndroidSurface.dc.html widget-small/widget-wide mockups.
+ * Renders W-07 (2x2: header + the four duration chips) from
+ * design_handoff_silent_scheduler_android's AndroidSurface.dc.html widget-wide
+ * mockup. A genuinely separate class from [QuickSilenceSmallWidget] — not just a
+ * parameter on a shared one — because Glance's updateAll()/getGlanceIds() key off
+ * the concrete GlanceAppWidget class to find a provider's placed instances; sharing
+ * one class between the wide and compact receivers made those calls unable to tell
+ * the two providers' instances apart. Each keeps its own copy of the state-resolving
+ * boilerplate in provideGlance as the price of that separation.
  *
  * SizeMode.Exact rather than Responsive: measured on-device, the actual placed size
  * on this launcher (One UI) didn't match either of a fixed pair of preset sizes —
@@ -56,7 +61,7 @@ import dagger.hilt.android.EntryPointAccessors
  * real container, so the layout below is written to stay compact enough to fit a
  * small real allotment rather than assuming a specific size.
  */
-class QuickSilenceWidget : GlanceAppWidget() {
+class QuickSilenceWideWidget : GlanceAppWidget() {
 
     override val sizeMode: SizeMode = SizeMode.Exact
 
@@ -67,18 +72,19 @@ class QuickSilenceWidget : GlanceAppWidget() {
         // instead, the same EntryPoint pattern the ActionCallbacks already use.
         val stateProvider = EntryPointAccessors.fromApplication(context, WidgetEntryPoint::class.java).widgetStateProvider()
         val state = stateProvider.buildState()
-        provideContent {
-            val size = LocalSize.current
-            if (size.height > COMPACT_HEIGHT_THRESHOLD) {
-                WideWidgetContent(state)
-            } else {
-                SmallWidgetContent(state)
-            }
-        }
+        provideContent { WideWidgetContent(state) }
     }
+}
 
-    private companion object {
-        val COMPACT_HEIGHT_THRESHOLD = 70.dp
+/** Renders W-01/W-02 (2x1: icon + kicker + big value + sub) — see [QuickSilenceWideWidget]. */
+class QuickSilenceSmallWidget : GlanceAppWidget() {
+
+    override val sizeMode: SizeMode = SizeMode.Exact
+
+    override suspend fun provideGlance(context: Context, id: GlanceId) {
+        val stateProvider = EntryPointAccessors.fromApplication(context, WidgetEntryPoint::class.java).widgetStateProvider()
+        val state = stateProvider.buildState()
+        provideContent { SmallWidgetContent(state) }
     }
 }
 
@@ -124,69 +130,81 @@ private fun WideWidgetContent(state: WidgetUiState) {
     // where there just isn't room for a fourth line.
     val showFooter = LocalSize.current.height > 105.dp
     // Most taps on this widget are meant to set a quick duration or toggle from the
-    // header — "open the app" needs to be reachable, but not so easy to trigger by
-    // accident that it gets in the way of that primary use. So only a thin border
-    // ring opens the app: the outer Box's own background+click covers the full card,
-    // and the inner content Column is inset from it by BORDER_WIDTH with a click of
-    // its own that swallows taps silently — that inner click's hit area is its own
-    // (smaller, inset) bounds, so it never reaches past that ring, leaving only the
-    // ring itself exposed to the outer Box underneath.
-    Box(
+    // header, not launch the app — so "open the app" is a small, deliberate icon
+    // rather than a whole free-space region. (An earlier attempt inset a "border
+    // ring" out of a padded inner container, on the assumption that padding shrinks
+    // a clickable element's hit area the way it does in Jetpack Compose proper —
+    // verified on-device that Glance does NOT carry that behavior into RemoteViews;
+    // the inner container's click claimed the full card regardless of its padding,
+    // so the border was never actually reachable. A small icon with its own click,
+    // as a direct sibling other elements already successfully override a parent's
+    // click with — the same pattern the duration chips already rely on — is what
+    // actually works.)
+    Column(
         modifier = GlanceModifier
             .fillMaxSize()
             .background(widgetBackground(state.silent))
             .cornerRadius(28.dp)
-            .clickable(actionStartActivity(Intent(LocalContext.current, MainActivity::class.java)))
+            .padding(14.dp)
     ) {
-        Column(
-            modifier = GlanceModifier
-                .padding(BORDER_WIDTH)
-                .fillMaxSize()
-                .clickable(actionRunCallback<NoOpAction>())
-                .padding(4.dp)
+        Row(
+            modifier = GlanceModifier.fillMaxWidth().toggleClickModifier(state),
+            verticalAlignment = Alignment.Vertical.CenterVertically
         ) {
-            Row(
-                modifier = GlanceModifier.fillMaxWidth().toggleClickModifier(state),
-                verticalAlignment = Alignment.Vertical.CenterVertically
-            ) {
-                StatusIcon(silent = state.silent, size = 30.dp)
-                Spacer(GlanceModifier.width(10.dp))
-                Column(modifier = GlanceModifier.defaultWeight()) {
-                    KickerText(state.kicker, state.silent)
-                    Text(
-                        state.subText,
-                        maxLines = 1,
-                        style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold, color = textColor())
-                    )
-                }
-                Spacer(GlanceModifier.width(6.dp))
+            StatusIcon(silent = state.silent, size = 30.dp)
+            Spacer(GlanceModifier.width(10.dp))
+            Column(modifier = GlanceModifier.defaultWeight()) {
+                KickerText(state.kicker, state.silent)
                 Text(
-                    state.bigText,
+                    state.subText,
                     maxLines = 1,
-                    style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Medium, color = textColor())
+                    style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold, color = textColor())
                 )
             }
+            Spacer(GlanceModifier.width(6.dp))
+            Text(
+                state.bigText,
+                maxLines = 1,
+                style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Medium, color = textColor())
+            )
+            Spacer(GlanceModifier.width(8.dp))
+            OpenAppIcon()
+        }
+        Spacer(GlanceModifier.defaultWeight())
+        Row(modifier = GlanceModifier.fillMaxWidth()) {
+            state.chips.forEachIndexed { index, chip ->
+                if (index > 0) Spacer(GlanceModifier.width(8.dp))
+                DurationChip(chip = chip, modifier = GlanceModifier.defaultWeight())
+            }
+        }
+        if (showFooter) {
             Spacer(GlanceModifier.defaultWeight())
-            Row(modifier = GlanceModifier.fillMaxWidth()) {
-                state.chips.forEachIndexed { index, chip ->
-                    if (index > 0) Spacer(GlanceModifier.width(8.dp))
-                    DurationChip(chip = chip, modifier = GlanceModifier.defaultWeight())
-                }
-            }
-            if (showFooter) {
-                Spacer(GlanceModifier.defaultWeight())
-                Text(
-                    state.footerText,
-                    maxLines = 1,
-                    style = TextStyle(fontSize = 10.sp, color = dimColor(), textAlign = TextAlign.Center),
-                    modifier = GlanceModifier.fillMaxWidth()
-                )
-            }
+            Text(
+                state.footerText,
+                maxLines = 1,
+                style = TextStyle(fontSize = 10.sp, color = dimColor(), textAlign = TextAlign.Center),
+                modifier = GlanceModifier.fillMaxWidth()
+            )
         }
     }
 }
 
-private val BORDER_WIDTH = 12.dp
+@Composable
+private fun OpenAppIcon() {
+    Box(
+        modifier = GlanceModifier
+            .size(22.dp)
+            .cornerRadius(11.dp)
+            .clickable(actionStartActivity(Intent(LocalContext.current, MainActivity::class.java))),
+        contentAlignment = Alignment.Center
+    ) {
+        Image(
+            provider = ImageProvider(R.mipmap.ic_launcher),
+            contentDescription = null,
+            modifier = GlanceModifier.size(18.dp)
+        )
+    }
+}
 
 @Composable
 private fun StatusIcon(silent: Boolean, size: Dp) {

@@ -17,6 +17,7 @@ class WidgetRefresher @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     suspend fun refresh() {
-        QuickSilenceWidget().updateAll(context)
+        QuickSilenceWideWidget().updateAll(context)
+        QuickSilenceSmallWidget().updateAll(context)
     }
 }

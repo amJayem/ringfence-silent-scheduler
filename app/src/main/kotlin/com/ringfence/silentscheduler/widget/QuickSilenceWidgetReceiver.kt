@@ -7,5 +7,5 @@ import androidx.glance.appwidget.GlanceAppWidgetReceiver
 // normal onReceive lifecycle Hilt hooks into (see QuickSilenceWidget.provideGlance's
 // own comment), so QuickSilenceWidget resolves its dependencies lazily instead.
 class QuickSilenceWidgetReceiver : GlanceAppWidgetReceiver() {
-    override val glanceAppWidget: GlanceAppWidget = QuickSilenceWidget()
+    override val glanceAppWidget: GlanceAppWidget = QuickSilenceWideWidget()
 }

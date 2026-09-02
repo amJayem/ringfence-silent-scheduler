@@ -1,6 +1,7 @@
 package com.ringfence.silentscheduler.core.ringer
 
 import android.media.AudioManager
+import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
@@ -58,6 +59,31 @@ class SilencerCoordinator @Inject constructor(
         // runs — only start the tick loop on the 0->1 transition (already running
         // for any subsequent overlapping window).
         if (wasIdle) widgetTickScheduler.start()
+    }
+
+    /**
+     * Corrects the counter if it has drifted from how many windows are actually
+     * silencing right now — otherwise a count stuck above zero (e.g. from a window
+     * whose own end path never ran, such as a process death mid-transaction) would
+     * leave [onWindowEnd] never seeing the 0 it needs to ever restore the ringer
+     * again, stranding the phone silenced indefinitely. Call with a freshly computed
+     * ground truth (quick silence active? plus how many schedules are in an active
+     * occurrence right now), not a cached value.
+     */
+    suspend fun reconcile(actuallyActiveCount: Int) {
+        var modeToRestore: Int? = null
+        dataStore.edit { prefs ->
+            val stored = prefs[Keys.ACTIVE_COUNT] ?: 0
+            if (stored != actuallyActiveCount) {
+                Log.d("RingfenceDiag", "reconcile: stored=$stored actual=$actuallyActiveCount")
+                if (actuallyActiveCount == 0 && stored > 0) {
+                    modeToRestore = prefs[Keys.GLOBAL_PRIOR_MODE] ?: AudioManager.RINGER_MODE_NORMAL
+                    prefs.remove(Keys.GLOBAL_PRIOR_MODE)
+                }
+                prefs[Keys.ACTIVE_COUNT] = actuallyActiveCount
+            }
+        }
+        modeToRestore?.let { ringerModeController.setMode(it) }
     }
 
     /**

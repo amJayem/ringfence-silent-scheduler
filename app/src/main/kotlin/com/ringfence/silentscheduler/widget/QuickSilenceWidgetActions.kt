@@ -13,8 +13,7 @@ private fun entryPoint(context: Context): WidgetEntryPoint =
  * W-04/W-05: tapping the widget's header/ring starts or ends silence depending on
  * current state. No explicit widget refresh here — WidgetActionHandler's own calls
  * (QuickSilenceRepository.startSilence/revertSilence, ScheduleTriggerHandler.handleEnd)
- * already trigger one, the same as every other caller of those, and WidgetRefresher
- * pushes updates to every placed instance (including this one) directly.
+ * already trigger one, the same as every other caller of those.
  */
 class ToggleSilenceAction : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {

@@ -1,23 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Placed at a 3x2 cell footprint by default (194x124dp, 70dp/cell - 16dp gap) —
-     noticeably bigger than the original bare-minimum 2x1 — and freely resizable in
-     both directions afterward, since SizeMode.Exact in QuickSilenceWidget renders
-     against whatever real size it's actually given rather than assuming a fixed one.
-     minWidth/minHeight stay at the original 2x1 floor so it can still be shrunk back
-     down if wanted. maxResizeWidth/Height are set well past any real phone's screen
-     size — the OS clamps actual dragging to the physical screen and grid regardless,
-     so a generous ceiling here just means the cap is never what stops the user from
-     reaching full screen width (or a much taller card) themselves. -->
+     noticeably bigger than the original bare-minimum 2x1. Width-only resize: height
+     is fixed by targetCellHeight since the wide layout's own content (header, chips,
+     footer) needs a specific, predictable amount of vertical room to all fit — only
+     width is meant to grow, up to the full screen, so resizeMode omits "vertical".
+     maxResizeWidth is set well past any real phone's screen width — the OS clamps
+     actual dragging to the physical screen and grid regardless, so the ceiling here
+     should never be what stops someone from reaching full screen width themselves. -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:minWidth="124dp"
     android:minHeight="54dp"
     android:targetCellWidth="3"
     android:targetCellHeight="2"
-    android:resizeMode="horizontal|vertical"
+    android:resizeMode="horizontal"
     android:minResizeWidth="124dp"
-    android:minResizeHeight="54dp"
     android:maxResizeWidth="700dp"
-    android:maxResizeHeight="500dp"
     android:updatePeriodMillis="1800000"
     android:widgetCategory="home_screen"
     android:previewImage="@mipmap/ic_launcher"

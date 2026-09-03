@@ -5,8 +5,11 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,7 +31,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -36,6 +43,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -68,6 +76,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ringfence.silentscheduler.R
+import com.ringfence.silentscheduler.core.theme.DangerRedDark
+import com.ringfence.silentscheduler.core.theme.DangerRedLight
 import com.ringfence.silentscheduler.core.time.formatActiveCountdown
 import com.ringfence.silentscheduler.core.ui.PillSwitch
 import com.ringfence.silentscheduler.core.ui.PrimaryButton
@@ -91,6 +101,9 @@ fun DashboardScreen(
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
+    val selectedIds by viewModel.selectedIds.collectAsState()
+    val selectionMode = selectedIds.isNotEmpty()
+    var showDeleteConfirm by remember { mutableStateOf(false) }
     // S-01/S-02/S-03: derived from viewport height, not stored — a rotation or a
     // multi-window resize should reflect immediately, not stick to launch-time size.
     val compact = LocalConfiguration.current.screenHeightDp < COMPACT_HEIGHT_THRESHOLD_DP
@@ -143,22 +156,47 @@ fun DashboardScreen(
             // The day label and the +/settings icons keep almost all of their space —
             // only the gap above them breathes with the scroll — so the header stays
             // fully readable no matter how far the body has scrolled.
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.weight(1f)) {
+            if (selectionMode) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    IconButton(onClick = { viewModel.clearSelection() }) {
+                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.action_cancel_selection))
+                    }
                     Text(
-                        stringResource(R.string.dashboard_brand_label),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        letterSpacing = 1.5.sp
+                        stringResource(R.string.dashboard_selected_count, selectedIds.size),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
                     )
-                    Text(state.dayLabel, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                    val dangerRed = if (isSystemInDarkTheme()) DangerRedDark else DangerRedLight
+                    IconButton(onClick = { showDeleteConfirm = true }) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = stringResource(R.string.action_delete_selected),
+                            tint = dangerRed
+                        )
+                    }
                 }
-                val addScheduleCd = stringResource(R.string.action_add_schedule)
-                IconButton(onClick = onAddSchedule) {
-                    Icon(Icons.Default.Add, contentDescription = addScheduleCd)
-                }
-                IconButton(onClick = onOpenSettings) {
-                    Icon(painterResource(R.drawable.ic_tune), contentDescription = stringResource(R.string.action_settings))
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            stringResource(R.string.dashboard_brand_label),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            letterSpacing = 1.5.sp
+                        )
+                        Text(state.dayLabel, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                    }
+                    val addScheduleCd = stringResource(R.string.action_add_schedule)
+                    IconButton(onClick = onAddSchedule) {
+                        Icon(Icons.Default.Add, contentDescription = addScheduleCd)
+                    }
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(painterResource(R.drawable.ic_tune), contentDescription = stringResource(R.string.action_settings))
+                    }
                 }
             }
 
@@ -205,24 +243,59 @@ fun DashboardScreen(
                     ScheduleRow(
                         row = row,
                         anyOtherActive = anyActive && !row.isActiveNow,
+                        selectionMode = selectionMode,
+                        isSelected = row.schedule.id in selectedIds,
                         onToggle = { viewModel.toggleEnabled(row.schedule) },
-                        onClick = { onEditSchedule(row.schedule.id) }
+                        onClick = {
+                            if (selectionMode) {
+                                viewModel.toggleSelection(row.schedule.id)
+                            } else {
+                                onEditSchedule(row.schedule.id)
+                            }
+                        },
+                        onLongClick = { viewModel.toggleSelection(row.schedule.id) }
                     )
                 }
                 item { Spacer(Modifier.height(88.dp)) }
             }
         }
 
-        FloatingActionButton(
-            onClick = onAddSchedule,
-            shape = CircleShape,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(24.dp)
-                .size(60.dp)
-        ) {
-            Icon(Icons.Default.Add, contentDescription = stringResource(R.string.action_add_schedule))
+        if (!selectionMode) {
+            FloatingActionButton(
+                onClick = onAddSchedule,
+                shape = CircleShape,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(24.dp)
+                    .size(60.dp)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.action_add_schedule))
+            }
         }
+    }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text(stringResource(R.string.dashboard_delete_selected_title, selectedIds.size)) },
+            text = { Text(stringResource(R.string.dashboard_delete_selected_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.deleteSelected()
+                    showDeleteConfirm = false
+                }) {
+                    Text(
+                        stringResource(R.string.dashboard_delete_selected_confirm),
+                        color = if (isSystemInDarkTheme()) DangerRedDark else DangerRedLight
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text(stringResource(R.string.dashboard_delete_selected_cancel))
+                }
+            }
+        )
     }
 }
 
@@ -510,6 +583,7 @@ private fun ProgressRing(
  * `edge: active ? accent : (s.on ? line : 'transparent')` exactly rather than only
  * relying on the "NOW" badge text.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ScheduleRow(
     row: ScheduleRowUiState,
@@ -518,8 +592,15 @@ private fun ScheduleRow(
     // of relying on the 3dp edge color alone (user feedback: the two states looked
     // too similar at a glance).
     anyOtherActive: Boolean,
+    // Long-pressing any row enters selection mode by selecting just that one; while
+    // active, a plain tap on any row toggles its own selection instead of opening
+    // its editor, and the enable switch steps aside for a checkbox so there's only
+    // one tap target per row.
+    selectionMode: Boolean,
+    isSelected: Boolean,
     onToggle: () -> Unit,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onLongClick: () -> Unit
 ) {
     val edgeColor = when {
         row.isActiveNow -> MaterialTheme.colorScheme.primary
@@ -536,7 +617,7 @@ private fun ScheduleRow(
             .fillMaxWidth()
             .padding(vertical = 4.dp)
             .alpha(rowAlpha)
-            .clickable(onClick = onClick)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
     ) {
         Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
             Box(
@@ -581,7 +662,11 @@ private fun ScheduleRow(
                     )
                 }
                 Spacer(Modifier.width(12.dp))
-                PillSwitch(checked = row.schedule.isEnabled, onCheckedChange = { onToggle() })
+                if (selectionMode) {
+                    Checkbox(checked = isSelected, onCheckedChange = null)
+                } else {
+                    PillSwitch(checked = row.schedule.isEnabled, onCheckedChange = { onToggle() })
+                }
             }
         }
     }

@@ -98,17 +98,38 @@ with a granted/required indicator. Layout is identical across themes; only color
 tokens swap.
 
 **Add/Edit Schedule ("Edit window")**: back chevron + title ("Add window" / "Edit
-window") + a "Save" text button (accent color) in the header row — no full-width Save
-button at the bottom. "LABEL" section: a single bordered text field. "WINDOW" section:
-Start/End side-by-side bordered boxes (tap opens a time picker), with a computed
-duration caption below ("20m of silence"). "REPEAT" section: a Sunday-first row of 7
-circular day chips (S M T W T F S — accent-filled when selected) plus "Every
-day"/"Weekdays"/"Weekends" quick-select pill presets below. "SILENCE STYLE": the same
-segmented control as Settings, but scoped to this one schedule (defaults to the
-Settings-wide value for a brand-new schedule). No "Enabled" toggle here — that's the
-Dashboard row's switch, not part of this screen. "Delete schedule": a full-width
-outlined pill button with red/error-colored text, shown only when editing an existing
-schedule.
+window") — no Save in the header; Save lives in a fixed bottom action bar instead.
+"LABEL" section: a single bordered text field. "WINDOW" section: Start/End side-by-
+side bordered boxes (mono time), tapping one makes it the *active target* — a 1.5dp
+accent border that persists on whichever card was tapped most recently, independent
+of whether its time dialog is currently open — plus a duration caption below ("20m of
+silence") normally, or an inline error card when start = end ("Start and end are the
+same time" / "A window needs at least 5 minutes. For a full 24 hours, use two
+schedules instead.").
+
+**Deliberate deviation from INTERACTION-SPEC.md's E-06/E-07**: the source design
+specifies a scrolling list of every 15-minute slot across 24 hours as the Start/End
+picker. Per explicit direction, the build instead keeps its existing numeric time
+entry (hour/minute typed digits + AM/PM, with a dial-view toggle) rather than building
+that scrolling list — everything else in E-03 through E-11 is implemented as designed.
+
+Under the Start/End cards, a 24-hour bar (E-08/E-09/E-10) draws the window on a
+midnight-to-midnight Canvas track with ticks and mono time labels at 12 AM / 6 AM /
+12 PM / 6 PM / 12 AM: one accent segment for a same-day window, or two segments
+(start-to-right-edge, left-edge-to-end) for an overnight window like 9:30 AM→2:30 AM,
+shown together with a "Crosses midnight" pill tag next to the duration caption. When
+start = end, no segment is drawn — the track stays empty and the tag doesn't appear.
+Verified on-device for both the same-day and overnight cases; the invalid (start=end)
+case shares the same code gate as the overnight case and wasn't separately re-verified
+by tapping through the UI, but is correct by inspection.
+
+"REPEAT" section: a Sunday-first row of 7 circular day chips (S M T W T F S — accent-
+filled when selected) plus "Every day"/"Weekdays"/"Weekends" quick-select pill presets
+below. "SILENCE STYLE": the same segmented control as Settings, but scoped to this one
+schedule (defaults to the Settings-wide value for a brand-new schedule). No "Enabled"
+toggle here — that's the Dashboard row's switch, not part of this screen. "Delete
+schedule": a full-width outlined pill button with red/error-colored text, shown only
+when editing an existing schedule.
 
 **"Silent now" (bottom sheet, not a screen)**: reachable from the Dashboard's idle
 status card *and* the bottom-nav "Silent now" item — both open the same sheet rather

@@ -28,7 +28,7 @@ fun <T> SegmentedControl(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(percent = 50))
+            .clip(RoundedCornerShape(24.dp))
             .background(MaterialTheme.colorScheme.secondaryContainer)
             .padding(4.dp)
     ) {

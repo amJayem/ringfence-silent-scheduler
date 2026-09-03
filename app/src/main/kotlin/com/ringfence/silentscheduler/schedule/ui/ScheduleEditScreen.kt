@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,8 +16,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ButtonDefaults
@@ -31,9 +34,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimeInput
-import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -74,6 +77,12 @@ import java.util.UUID
 
 /** E-04/E-05: which of the Start/End cards is the current accent-bordered target. */
 private enum class TimeTarget { START, END }
+
+// Matches the source design's own cardRadius/chipRadius constants for Android
+// (SilentApp.dc.html: `cardRadius: ios ? 20 : 24, chipRadius: ios ? 13 : 16`).
+private val CardRadius = 24.dp
+private val ChipRadius = 16.dp
+private val TagRadius = 6.dp
 
 /** Sunday-first order, matching the design's "S M T W T F S" day-chip row. */
 private val WEEK_ORDER = listOf(
@@ -205,7 +214,7 @@ fun ScheduleEditScreen(
             value = label,
             onValueChange = { label = it },
             placeholder = { Text(stringResource(R.string.schedule_edit_label_placeholder)) },
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(CardRadius),
             modifier = Modifier.fillMaxWidth()
         )
 
@@ -261,6 +270,20 @@ fun ScheduleEditScreen(
                 )
             }
         }
+        Spacer(Modifier.height(12.dp))
+        TimeSlotList(
+            activeTarget = activeTarget,
+            startMinuteOfDay = startMinuteOfDay,
+            endMinuteOfDay = endMinuteOfDay,
+            onPick = { minuteOfDay ->
+                if (activeTarget == TimeTarget.START) {
+                    startMinuteOfDay = minuteOfDay
+                } else {
+                    endMinuteOfDay = minuteOfDay
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        )
 
         Spacer(Modifier.height(20.dp))
 
@@ -451,7 +474,7 @@ private fun EditorActionBar(
 @Composable
 private fun InvalidRangeCard() {
     Surface(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(CardRadius),
         color = MaterialTheme.colorScheme.errorContainer,
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -492,7 +515,7 @@ private fun TimeRangeBar(
     val accentColor = MaterialTheme.colorScheme.primary
 
     Surface(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(CardRadius),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 2.dp,
         modifier = modifier
@@ -562,11 +585,102 @@ private fun TimeRangeBar(
     }
 }
 
+private const val MINUTES_PER_SLOT = 15
+private const val SLOTS_PER_DAY = 24 * 60 / MINUTES_PER_SLOT
+
+/**
+ * E-06/E-07: an always-visible scrolling list of every 15-minute slot across all 24
+ * hours — free choice, not a preset shortlist — rather than a modal. Tapping a row
+ * writes to whichever of Start/End is the current active target; only the row
+ * matching *that* target's own current value is highlighted and hinted, matching
+ * the source design (a row matching the *other* field's value isn't marked here).
+ */
+@Composable
+private fun TimeSlotList(
+    activeTarget: TimeTarget,
+    startMinuteOfDay: Int,
+    endMinuteOfDay: Int,
+    onPick: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val listState = rememberLazyListState()
+    val activeMinuteOfDay = if (activeTarget == TimeTarget.START) startMinuteOfDay else endMinuteOfDay
+    val startHint = stringResource(R.string.schedule_edit_start).lowercase()
+    val endHint = stringResource(R.string.schedule_edit_end).lowercase()
+
+    // Keeps the active target's current value in view whenever it changes — either
+    // from switching which card is active, or picking a new value for it.
+    LaunchedEffect(activeTarget, activeMinuteOfDay) {
+        val targetIndex = (activeMinuteOfDay / MINUTES_PER_SLOT - 2).coerceIn(0, SLOTS_PER_DAY - 1)
+        listState.scrollToItem(targetIndex)
+    }
+
+    Surface(
+        shape = RoundedCornerShape(CardRadius),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        modifier = modifier.height(172.dp)
+    ) {
+        LazyColumn(state = listState, modifier = Modifier.padding(6.dp)) {
+            items(SLOTS_PER_DAY) { index ->
+                val minuteOfDay = index * MINUTES_PER_SLOT
+                val isActiveTargetValue = minuteOfDay == activeMinuteOfDay
+                TimeSlotRow(
+                    label = formatMinuteOfDay(minuteOfDay),
+                    hint = if (isActiveTargetValue) {
+                        if (activeTarget == TimeTarget.START) startHint else endHint
+                    } else {
+                        null
+                    },
+                    selected = isActiveTargetValue,
+                    onClick = { onPick(minuteOfDay) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TimeSlotRow(
+    label: String,
+    hint: String?,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(38.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp)
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.bodyMedium,
+            fontFamily = NumeralFontFamily,
+            color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f)
+        )
+        if (hint != null) {
+            Text(
+                hint,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
 /** E-10: shown next to the duration caption only for a window that wraps past midnight. */
 @Composable
 private fun CrossesMidnightTag() {
+    // Design uses a small 6dp-rounded rect here (border-radius:6px), not a pill —
+    // distinct from the fully-rounded chips/buttons elsewhere on this screen.
     Surface(
-        shape = RoundedCornerShape(percent = 50),
+        shape = RoundedCornerShape(TagRadius),
         color = MaterialTheme.colorScheme.secondaryContainer
     ) {
         Text(
@@ -578,11 +692,15 @@ private fun CrossesMidnightTag() {
     }
 }
 
+/** Uppercase section headers ("LABEL", "WINDOW"...) are mono in the source design,
+ * not the body sans — matching every other section label and time value. */
 @Composable
 private fun SectionLabel(text: String) {
     Text(
         text = text,
         style = MaterialTheme.typography.labelLarge,
+        fontFamily = NumeralFontFamily,
+        letterSpacing = 1.3.sp,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
 }
@@ -599,7 +717,7 @@ private fun TimeBox(
     modifier: Modifier = Modifier
 ) {
     Surface(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(CardRadius),
         color = Color.Transparent,
         border = BorderStroke(
             if (isActive) 1.5.dp else 1.dp,
@@ -615,6 +733,8 @@ private fun TimeBox(
     }
 }
 
+/** Design draws day chips as a 46dp-tall rounded square (chipRadius, 16dp on
+ * Android) — not a circle, despite the single-letter label suggesting one. */
 @Composable
 private fun DayChip(
     label: String,
@@ -622,18 +742,19 @@ private fun DayChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
+    val shape = RoundedCornerShape(ChipRadius)
+    Box(
         modifier = modifier
-            .clip(CircleShape)
+            .height(46.dp)
+            .clip(shape)
             .background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent)
             .border(
                 width = 1.dp,
                 color = if (selected) Color.Transparent else MaterialTheme.colorScheme.outline,
-                shape = CircleShape
+                shape = shape
             )
-            .clickable(onClick = onClick)
-            .padding(vertical = 10.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
     ) {
         Text(
             label,
@@ -671,14 +792,13 @@ private fun TimeOfDayPickerDialog(
     onDismiss: () -> Unit,
     onConfirm: (Int) -> Unit
 ) {
+    // Numeric entry only — the source design has no dial/clock-face picker at all,
+    // so the earlier dial-view toggle here didn't correspond to anything designed.
     val state = rememberTimePickerState(
         initialHour = initialMinuteOfDay / 60,
         initialMinute = initialMinuteOfDay % 60,
         is24Hour = false
     )
-    // Defaults to TimeInput (numeric keyboard entry); a toggle switches to the dial
-    // without losing the selection — both read/write the same TimePickerState.
-    var useKeyboardInput by remember { mutableStateOf(true) }
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(shape = RoundedCornerShape(28.dp)) {
@@ -686,24 +806,13 @@ private fun TimeOfDayPickerDialog(
                 modifier = Modifier.padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                if (useKeyboardInput) {
-                    TimeInput(state = state)
-                } else {
-                    TimePicker(state = state)
-                }
+                TimeInput(state = state)
                 Spacer(Modifier.height(4.dp))
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    IconButton(onClick = { useKeyboardInput = !useKeyboardInput }) {
-                        Icon(
-                            painter = painterResource(
-                                if (useKeyboardInput) R.drawable.ic_schedule else R.drawable.ic_keyboard
-                            ),
-                            contentDescription = if (useKeyboardInput) "Switch to dial" else "Switch to keyboard entry"
-                        )
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.schedule_edit_cancel)) }
+                    TextButton(onClick = { onConfirm(state.hour * 60 + state.minute) }) {
+                        Text(stringResource(R.string.schedule_edit_time_dialog_ok))
                     }
-                    Spacer(Modifier.weight(1f))
-                    TextButton(onClick = onDismiss) { Text("Cancel") }
-                    TextButton(onClick = { onConfirm(state.hour * 60 + state.minute) }) { Text("OK") }
                 }
             }
         }

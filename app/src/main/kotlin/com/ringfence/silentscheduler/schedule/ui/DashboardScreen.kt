@@ -35,10 +35,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -298,10 +300,17 @@ private fun StatusCard(
  * Also covers the active<->idle edge itself: because the caller ([StatusCard]) holds
  * this at one call site instead of branching between two different composables, the
  * same [animateFloatAsState]/[animateColorAsState] instances carry across silence
- * starting or ending, so the border sweeps from empty to full (or back) over 900ms
- * and the accent color fades in/out with it — a felt "it just started/ended," not an
- * instant cut.
+ * starting or ending, so the border sweeps from empty to full (or back) and the
+ * accent color fades in/out with it — a felt "it just started/ended," not an
+ * instant cut. That start/end sweep runs slower ([TRANSITION_DURATION_MILLIS]) than
+ * the per-second tick smoothing ([TICK_DURATION_MILLIS], kept close to H-04's
+ * spec'd 900ms so each tick's animation finishes before the next one-second tick
+ * arrives) — otherwise the same short duration that keeps ticking smooth would make
+ * the on/off moment itself easy to miss.
  */
+private const val TICK_DURATION_MILLIS = 900
+private const val TRANSITION_DURATION_MILLIS = 1600
+
 @Composable
 private fun StatusRing(
     active: ActiveCardState?,
@@ -318,16 +327,21 @@ private fun StatusRing(
             delay(1000)
         }
     }
+    var wasActive by remember { mutableStateOf(active != null) }
+    val isTransitioning = wasActive != (active != null)
+    SideEffect { wasActive = active != null }
+    val durationMillis = if (isTransitioning) TRANSITION_DURATION_MILLIS else TICK_DURATION_MILLIS
+
     val totalSeconds = active?.let { ((it.endEpochMillis - it.startEpochMillis) / 1000).coerceAtLeast(1) } ?: 1L
     val targetFraction = if (active != null) (remainingSeconds.toFloat() / totalSeconds).coerceIn(0f, 1f) else 0f
     val animatedFraction by animateFloatAsState(
         targetValue = targetFraction,
-        animationSpec = tween(durationMillis = 900, easing = LinearEasing),
+        animationSpec = tween(durationMillis = durationMillis, easing = LinearEasing),
         label = "silenceRingProgress"
     )
     val animatedColor by animateColorAsState(
         targetValue = if (active != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-        animationSpec = tween(durationMillis = 900, easing = LinearEasing),
+        animationSpec = tween(durationMillis = durationMillis, easing = LinearEasing),
         label = "silenceRingColor"
     )
     // S-01: ~78% size when compact (180dp -> 140dp), same ratio the spec gives for its own 188->147px ring.

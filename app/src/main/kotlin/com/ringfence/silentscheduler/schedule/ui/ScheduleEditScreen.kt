@@ -471,11 +471,14 @@ private fun InvalidRangeCard() {
 }
 
 /**
- * E-08/E-09/E-10: a midnight-to-midnight track with ticks at 12/6/12/6/12, showing
- * the chosen window as an accent segment. An overnight window (end before start)
- * draws as two segments — one to the right edge, one from the left edge — rather
- * than one segment wrapping backwards, since the track itself doesn't wrap. While
- * invalid (E-11, start == end) no segment is drawn at all; the track stays empty.
+ * E-08/E-09/E-10: a midnight-to-midnight track showing the chosen window as an
+ * accent segment, inset inside its own card per the source design — a 26dp track
+ * (not a bare thin line) with a single center divider at noon, the segment inset
+ * 4dp inside the track's own height rather than filling it edge to edge. An
+ * overnight window (end before start) draws as two segments — one to the right
+ * edge, one from the left edge — rather than one segment wrapping backwards, since
+ * the track itself doesn't wrap. While invalid (E-11, start == end) no segment is
+ * drawn at all; the track stays empty.
  */
 @Composable
 private fun TimeRangeBar(
@@ -485,67 +488,75 @@ private fun TimeRangeBar(
     modifier: Modifier = Modifier
 ) {
     val trackColor = MaterialTheme.colorScheme.surfaceVariant
-    val tickColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val dividerColor = MaterialTheme.colorScheme.outline
     val accentColor = MaterialTheme.colorScheme.primary
 
-    Column(modifier = modifier) {
-        Canvas(modifier = Modifier.fillMaxWidth().height(16.dp)) {
-            val trackThickness = 6.dp.toPx()
-            val capRadius = trackThickness / 2f
-            val centerY = size.height / 2f
-
-            drawRoundRect(
-                color = trackColor,
-                topLeft = Offset(0f, centerY - capRadius),
-                size = Size(size.width, trackThickness),
-                cornerRadius = CornerRadius(capRadius)
-            )
-
-            val tickHalfHeight = 5.dp.toPx()
-            listOf(0f, 0.25f, 0.5f, 0.75f, 1f).forEach { fraction ->
-                val x = (fraction * size.width).coerceIn(1f, size.width - 1f)
-                drawLine(
-                    color = tickColor.copy(alpha = 0.35f),
-                    start = Offset(x, centerY - tickHalfHeight),
-                    end = Offset(x, centerY + tickHalfHeight),
-                    strokeWidth = 1.5.dp.toPx()
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 2.dp,
+        modifier = modifier
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 13.dp, vertical = 12.dp)) {
+            Canvas(modifier = Modifier.fillMaxWidth().height(26.dp)) {
+                drawRoundRect(
+                    color = trackColor,
+                    size = size,
+                    cornerRadius = CornerRadius(7.dp.toPx())
                 )
-            }
 
-            if (!isInvalid) {
-                fun drawSegment(fromFraction: Float, toFraction: Float) {
-                    val fromX = fromFraction * size.width
-                    val toX = toFraction * size.width
-                    if (toX > fromX) {
-                        drawRoundRect(
-                            color = accentColor,
-                            topLeft = Offset(fromX, centerY - capRadius),
-                            size = Size(toX - fromX, trackThickness),
-                            cornerRadius = CornerRadius(capRadius)
-                        )
+                // A single divider at the midpoint (noon) — not a tick per hour marker.
+                drawLine(
+                    color = dividerColor,
+                    start = Offset(size.width / 2f, 0f),
+                    end = Offset(size.width / 2f, size.height),
+                    strokeWidth = 1.dp.toPx()
+                )
+
+                if (!isInvalid) {
+                    val inset = 4.dp.toPx()
+                    val segmentTop = inset
+                    val segmentHeight = size.height - inset * 2
+                    fun drawSegment(fromFraction: Float, toFraction: Float) {
+                        val fromX = fromFraction * size.width
+                        val toX = toFraction * size.width
+                        val segmentWidth = toX - fromX
+                        if (segmentWidth > 0) {
+                            // Capped at half the segment's own width too, not just its
+                            // height — a short-duration window (e.g. 1h out of 24)
+                            // otherwise rounds into a near-circular blob instead of a
+                            // visibly pill-shaped bar.
+                            val radius = minOf(segmentHeight / 2f, segmentWidth / 2f)
+                            drawRoundRect(
+                                color = accentColor,
+                                topLeft = Offset(fromX, segmentTop),
+                                size = Size(segmentWidth, segmentHeight),
+                                cornerRadius = CornerRadius(radius)
+                            )
+                        }
+                    }
+                    val startFraction = startMinuteOfDay / 1440f
+                    val endFraction = endMinuteOfDay / 1440f
+                    if (endFraction > startFraction) {
+                        drawSegment(startFraction, endFraction)
+                    } else {
+                        // Crosses midnight — the track can't wrap, so it's two segments.
+                        drawSegment(startFraction, 1f)
+                        drawSegment(0f, endFraction)
                     }
                 }
-                val startFraction = startMinuteOfDay / 1440f
-                val endFraction = endMinuteOfDay / 1440f
-                if (endFraction > startFraction) {
-                    drawSegment(startFraction, endFraction)
-                } else {
-                    // Crosses midnight — the track can't wrap, so it's two segments.
-                    drawSegment(startFraction, 1f)
-                    drawSegment(0f, endFraction)
-                }
             }
-        }
-        Spacer(Modifier.height(4.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            listOf(0, 360, 720, 1080, 0).forEach { minuteOfDay ->
-                Text(
-                    formatMinuteOfDay(minuteOfDay),
-                    style = MaterialTheme.typography.labelSmall,
-                    fontFamily = NumeralFontFamily,
-                    fontSize = 9.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            Spacer(Modifier.height(6.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                listOf(0, 360, 720, 1080, 0).forEach { minuteOfDay ->
+                    Text(
+                        formatMinuteOfDay(minuteOfDay),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontFamily = NumeralFontFamily,
+                        fontSize = 9.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     }

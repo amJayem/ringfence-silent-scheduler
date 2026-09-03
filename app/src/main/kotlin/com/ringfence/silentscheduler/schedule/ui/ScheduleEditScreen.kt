@@ -5,6 +5,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,6 +47,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -230,14 +232,16 @@ fun ScheduleEditScreen(
                 label = stringResource(R.string.schedule_edit_start),
                 time = formatMinuteOfDay(startMinuteOfDay),
                 isActive = activeTarget == TimeTarget.START,
-                onClick = { activeTarget = TimeTarget.START; editingStart = true },
+                onTap = { activeTarget = TimeTarget.START },
+                onDoubleTap = { activeTarget = TimeTarget.START; editingStart = true },
                 modifier = Modifier.weight(1f)
             )
             TimeBox(
                 label = stringResource(R.string.schedule_edit_end),
                 time = formatMinuteOfDay(endMinuteOfDay),
                 isActive = activeTarget == TimeTarget.END,
-                onClick = { activeTarget = TimeTarget.END; editingEnd = true },
+                onTap = { activeTarget = TimeTarget.END },
+                onDoubleTap = { activeTarget = TimeTarget.END; editingEnd = true },
                 modifier = Modifier.weight(1f)
             )
         }
@@ -707,13 +711,17 @@ private fun SectionLabel(text: String) {
 
 /** E-03/E-04/E-05: the card for whichever of Start/End was tapped most recently gets
  * a 1.5dp accent border instead of the neutral outline, so it's clear which one the
- * time dialog that just opened (or last closed) is writing to. */
+ * time dialog that just opened (or last closed) is writing to. A single tap only
+ * makes this the active target for the always-visible list below; a double tap
+ * additionally opens the numeric dialog, so one accidental tap doesn't pop a dialog
+ * over what's meant to be a quick scroll-and-pick interaction. */
 @Composable
 private fun TimeBox(
     label: String,
     time: String,
     isActive: Boolean,
-    onClick: () -> Unit,
+    onTap: () -> Unit,
+    onDoubleTap: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -723,7 +731,9 @@ private fun TimeBox(
             if (isActive) 1.5.dp else 1.dp,
             if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
         ),
-        modifier = modifier.clickable(onClick = onClick)
+        modifier = modifier.pointerInput(Unit) {
+            detectTapGestures(onTap = { onTap() }, onDoubleTap = { onDoubleTap() })
+        }
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

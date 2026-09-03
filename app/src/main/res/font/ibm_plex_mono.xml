@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Matches the design's actual usage (font-weight 400/500/600 only; see
+     SilentApp.dc.html's Google Fonts <link> tag: IBM+Plex+Mono:wght@400;500;600). -->
+<font-family xmlns:android="http://schemas.android.com/apk/res/android">
+    <font
+        android:fontStyle="normal"
+        android:fontWeight="400"
+        android:font="@font/ibm_plex_mono_regular" />
+    <font
+        android:fontStyle="normal"
+        android:fontWeight="500"
+        android:font="@font/ibm_plex_mono_medium" />
+    <font
+        android:fontStyle="normal"
+        android:fontWeight="600"
+        android:font="@font/ibm_plex_mono_semibold" />
+</font-family>

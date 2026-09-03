@@ -76,3 +76,23 @@ fun formatActiveCountdown(remainingSeconds: Long): String {
         "%d:%02d".format(minutes, seconds)
     }
 }
+
+/**
+ * The home-screen widget's countdown. Glance only redraws on an explicit refresh —
+ * here, WidgetTickScheduler's 60-second alarm, not a live per-second clock — so a
+ * ticking "mm:ss" like [formatActiveCountdown] reads as a seconds digit that's
+ * frozen for up to a minute and then jumps, rather than counting down smoothly.
+ * Always rounding up to the nearest whole minute is honest about the precision the
+ * widget can actually deliver.
+ */
+fun formatWidgetCountdown(remainingSeconds: Long): String {
+    val totalSeconds = remainingSeconds.coerceAtLeast(0)
+    return if (totalSeconds >= 3600) {
+        val hours = totalSeconds / 3600
+        val minutes = (totalSeconds % 3600) / 60
+        "${hours}h ${minutes}m"
+    } else {
+        val minutes = (totalSeconds + 59) / 60
+        "${minutes}m"
+    }
+}

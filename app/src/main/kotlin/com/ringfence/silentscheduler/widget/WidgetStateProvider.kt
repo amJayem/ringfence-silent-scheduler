@@ -3,8 +3,8 @@ package com.ringfence.silentscheduler.widget
 import android.app.NotificationManager
 import android.content.Context
 import com.ringfence.silentscheduler.R
-import com.ringfence.silentscheduler.core.time.formatActiveCountdown
 import com.ringfence.silentscheduler.core.time.formatMinuteOfDay
+import com.ringfence.silentscheduler.core.time.formatWidgetCountdown
 import com.ringfence.silentscheduler.quicksilence.domain.QuickSilenceRepository
 import com.ringfence.silentscheduler.schedule.domain.RecurringScheduleCalculator
 import com.ringfence.silentscheduler.schedule.domain.ScheduleRepository
@@ -142,7 +142,7 @@ class WidgetStateProvider @Inject constructor(
         return WidgetUiState(
             silent = true,
             kicker = context.getString(R.string.widget_status_silent),
-            bigText = formatActiveCountdown(remainingSeconds),
+            bigText = formatWidgetCountdown(remainingSeconds),
             subText = context.getString(R.string.widget_until_format, label, formatMinuteOfDay(endMinuteOfDay)),
             footerText = context.getString(R.string.widget_footer_silent),
             dndAccessGranted = dndAccessGranted,

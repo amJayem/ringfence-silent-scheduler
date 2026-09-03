@@ -65,16 +65,26 @@ class WidgetStateProvider @Inject constructor(
         }
 
         return when {
-            quickSilence.isActive -> silentState(
-                // Matches the literal label used everywhere else a quick session is
-                // named (QuickSilenceRepositoryImpl, DashboardViewModel) — not a
-                // string resource there either, so kept consistent rather than mixed.
-                label = "Quick silence",
-                endEpochMillis = quickSilence.endTimeMillis,
-                zone = zone,
-                chips = chips,
-                dndAccessGranted = dndAccessGranted
-            )
+            quickSilence.isActive -> {
+                // Which chip (if any) started this session — the elapsed duration
+                // only matches a chip's own minutes when the session was actually
+                // started at one of those presets, which covers every path that
+                // reaches quick silence in this app (chip tap, "Silent now" sheet,
+                // or its own default-duration fallback).
+                val elapsedMinutes = ((quickSilence.endTimeMillis - quickSilence.startTimeMillis) / 60_000L).toInt()
+                silentState(
+                    // Matches the literal label used everywhere else a quick session
+                    // is named (QuickSilenceRepositoryImpl, DashboardViewModel) — not
+                    // a string resource there either, so kept consistent rather than
+                    // mixed.
+                    label = "Quick silence",
+                    endEpochMillis = quickSilence.endTimeMillis,
+                    zone = zone,
+                    chips = chips,
+                    activeChipMinutes = elapsedMinutes,
+                    dndAccessGranted = dndAccessGranted
+                )
+            }
             activeSchedule != null -> {
                 val occ = occurrencesById.getValue(activeSchedule.id)
                 silentState(
@@ -82,6 +92,10 @@ class WidgetStateProvider @Inject constructor(
                     endEpochMillis = occ.end.atZone(zone).toInstant().toEpochMilli(),
                     zone = zone,
                     chips = chips,
+                    // A schedule isn't started from a duration chip, so none should
+                    // read as selected — tapping one now would start a separate,
+                    // overlapping quick silence, not "reselect" anything about it.
+                    activeChipMinutes = null,
                     dndAccessGranted = dndAccessGranted
                 )
             }
@@ -119,6 +133,7 @@ class WidgetStateProvider @Inject constructor(
         endEpochMillis: Long,
         zone: ZoneId,
         chips: List<WidgetChip>,
+        activeChipMinutes: Int?,
         dndAccessGranted: Boolean
     ): WidgetUiState {
         val remainingSeconds = ((endEpochMillis - System.currentTimeMillis()) / 1000).coerceAtLeast(0)
@@ -131,9 +146,11 @@ class WidgetStateProvider @Inject constructor(
             subText = context.getString(R.string.widget_until_format, label, formatMinuteOfDay(endMinuteOfDay)),
             footerText = context.getString(R.string.widget_footer_silent),
             dndAccessGranted = dndAccessGranted,
-            // The design only highlights a chip as "default" while sound is on —
-            // nothing to pick a duration for once a session is already running.
-            chips = chips.map { it.copy(isDefault = false) }
+            // Reflects whichever duration is actually running right now, not the
+            // Settings-level default — the point is to show the user which chip
+            // they actually picked, not to keep advertising a default that no
+            // longer applies once a session is already underway.
+            chips = chips.map { it.copy(isDefault = it.minutes == activeChipMinutes) }
         )
     }
 }

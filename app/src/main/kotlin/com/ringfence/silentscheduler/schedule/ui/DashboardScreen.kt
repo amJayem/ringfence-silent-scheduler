@@ -48,6 +48,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -199,9 +200,11 @@ fun DashboardScreen(
                     }
                 }
 
+                val anyActive = state.rows.any { it.isActiveNow }
                 items(state.rows, key = { it.schedule.id }) { row ->
                     ScheduleRow(
                         row = row,
+                        anyOtherActive = anyActive && !row.isActiveNow,
                         onToggle = { viewModel.toggleEnabled(row.schedule) },
                         onClick = { onEditSchedule(row.schedule.id) }
                     )
@@ -510,6 +513,11 @@ private fun ProgressRing(
 @Composable
 private fun ScheduleRow(
     row: ScheduleRowUiState,
+    // Whether some OTHER row is the one currently silencing — used to dim this row
+    // further when it isn't, so the active row reads as unmistakably current instead
+    // of relying on the 3dp edge color alone (user feedback: the two states looked
+    // too similar at a glance).
+    anyOtherActive: Boolean,
     onToggle: () -> Unit,
     onClick: () -> Unit
 ) {
@@ -518,12 +526,16 @@ private fun ScheduleRow(
         row.schedule.isEnabled -> MaterialTheme.colorScheme.outline
         else -> Color.Transparent
     }
+    val rowAlpha = if (anyOtherActive) 0.55f else 1f
     Surface(
-        shape = RoundedCornerShape(16.dp),
+        // Matches the design's cardRadius (24dp on Android) — the same rounding as
+        // the status card above it, not the smaller 16dp this used before.
+        shape = RoundedCornerShape(24.dp),
         color = MaterialTheme.colorScheme.surface,
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp)
+            .alpha(rowAlpha)
             .clickable(onClick = onClick)
     ) {
         Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {

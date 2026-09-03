@@ -5,13 +5,16 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -497,12 +500,24 @@ private fun ProgressRing(
     }
 }
 
+/**
+ * H-11/H-15: the row's left edge marks its state at a glance — accent while it's the
+ * one actually silencing right now, a faint outline while merely armed, and nothing
+ * at all once disabled — matching design_handoff_silent_scheduler_android's
+ * `edge: active ? accent : (s.on ? line : 'transparent')` exactly rather than only
+ * relying on the "NOW" badge text.
+ */
 @Composable
 private fun ScheduleRow(
     row: ScheduleRowUiState,
     onToggle: () -> Unit,
     onClick: () -> Unit
 ) {
+    val edgeColor = when {
+        row.isActiveNow -> MaterialTheme.colorScheme.primary
+        row.schedule.isEnabled -> MaterialTheme.colorScheme.outline
+        else -> Color.Transparent
+    }
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surface,
@@ -511,43 +526,51 @@ private fun ScheduleRow(
             .padding(vertical = 4.dp)
             .clickable(onClick = onClick)
     ) {
-        Row(
-            modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(row.schedule.label, style = MaterialTheme.typography.titleMedium)
-                    if (row.isActiveNow) {
-                        Spacer(Modifier.width(8.dp))
-                        Surface(
-                            shape = RoundedCornerShape(percent = 50),
-                            color = MaterialTheme.colorScheme.secondaryContainer
-                        ) {
-                            Text(
-                                stringResource(R.string.dashboard_now_badge),
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
+        Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+            Box(
+                modifier = Modifier
+                    .width(3.dp)
+                    .fillMaxHeight()
+                    .background(edgeColor)
+            )
+            Row(
+                modifier = Modifier
+                    .padding(16.dp)
+                    .fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(row.schedule.label, style = MaterialTheme.typography.titleMedium)
+                        if (row.isActiveNow) {
+                            Spacer(Modifier.width(8.dp))
+                            Surface(
+                                shape = RoundedCornerShape(percent = 50),
+                                color = MaterialTheme.colorScheme.secondaryContainer
+                            ) {
+                                Text(
+                                    stringResource(R.string.dashboard_now_badge),
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            }
                         }
                     }
+                    Text(
+                        "${row.timeRangeText} · ${row.repeatText}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        row.caption,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
-                Text(
-                    "${row.timeRangeText} · ${row.repeatText}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    row.caption,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Spacer(Modifier.width(12.dp))
+                PillSwitch(checked = row.schedule.isEnabled, onCheckedChange = { onToggle() })
             }
-            Spacer(Modifier.width(12.dp))
-            PillSwitch(checked = row.schedule.isEnabled, onCheckedChange = { onToggle() })
         }
     }
 }

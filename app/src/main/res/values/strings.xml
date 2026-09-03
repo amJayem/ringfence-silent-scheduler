@@ -62,6 +62,7 @@
     <string name="schedule_edit_start">Start</string>
     <string name="schedule_edit_end">End</string>
     <string name="schedule_edit_duration_caption">%1$s of silence</string>
+    <string name="schedule_edit_crosses_midnight">Crosses midnight</string>
     <string name="schedule_edit_repeat_section">REPEAT</string>
     <string name="schedule_edit_every_day">Every day</string>
     <string name="schedule_edit_weekdays">Weekdays</string>

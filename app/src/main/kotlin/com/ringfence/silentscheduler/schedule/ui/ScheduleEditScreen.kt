@@ -1,6 +1,7 @@
 package com.ringfence.silentscheduler.schedule.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -41,6 +43,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -52,6 +57,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.ringfence.silentscheduler.R
 import com.ringfence.silentscheduler.core.ringer.RevertPolicy
 import com.ringfence.silentscheduler.core.ringer.SilenceStyle
+import com.ringfence.silentscheduler.core.theme.NumeralFontFamily
 import com.ringfence.silentscheduler.core.time.formatDurationMinutes
 import com.ringfence.silentscheduler.core.time.formatMinuteOfDay
 import com.ringfence.silentscheduler.core.time.minutesBetween
@@ -65,6 +71,9 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
 import java.util.UUID
+
+/** E-04/E-05: which of the Start/End cards is the current accent-bordered target. */
+private enum class TimeTarget { START, END }
 
 /** Sunday-first order, matching the design's "S M T W T F S" day-chip row. */
 private val WEEK_ORDER = listOf(
@@ -131,6 +140,11 @@ fun ScheduleEditScreen(
 
     var editingStart by remember { mutableStateOf(false) }
     var editingEnd by remember { mutableStateOf(false) }
+    // E-04/E-05: which of Start/End is the "active target" — persists across the
+    // dialog opening and closing, unlike editingStart/editingEnd, so the accent
+    // border stays on whichever card the user last touched rather than reverting
+    // to neutral the moment its dialog closes.
+    var activeTarget by remember(initial) { mutableStateOf(TimeTarget.START) }
 
     // E-11: the only case the source design treats as invalid — a window needs at
     // least two distinct clock times. minutesBetween() would otherwise interpret
@@ -206,28 +220,46 @@ fun ScheduleEditScreen(
             TimeBox(
                 label = stringResource(R.string.schedule_edit_start),
                 time = formatMinuteOfDay(startMinuteOfDay),
-                onClick = { editingStart = true },
+                isActive = activeTarget == TimeTarget.START,
+                onClick = { activeTarget = TimeTarget.START; editingStart = true },
                 modifier = Modifier.weight(1f)
             )
             TimeBox(
                 label = stringResource(R.string.schedule_edit_end),
                 time = formatMinuteOfDay(endMinuteOfDay),
-                onClick = { editingEnd = true },
+                isActive = activeTarget == TimeTarget.END,
+                onClick = { activeTarget = TimeTarget.END; editingEnd = true },
                 modifier = Modifier.weight(1f)
             )
         }
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(16.dp))
+        // E-08/E-09/E-10: always rendered, but with no segment drawn while invalid
+        // (E-11) — an empty track rather than hiding the bar entirely.
+        TimeRangeBar(
+            startMinuteOfDay = startMinuteOfDay,
+            endMinuteOfDay = endMinuteOfDay,
+            isInvalid = isInvalidRange,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(Modifier.height(10.dp))
         if (isInvalidRange) {
             InvalidRangeCard()
         } else {
-            Text(
-                stringResource(
-                    R.string.schedule_edit_duration_caption,
-                    formatDurationMinutes(minutesBetween(startMinuteOfDay, endMinuteOfDay).toLong())
-                ),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            val crossesMidnight = endMinuteOfDay < startMinuteOfDay
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (crossesMidnight) {
+                    CrossesMidnightTag()
+                    Spacer(Modifier.width(8.dp))
+                }
+                Text(
+                    stringResource(
+                        R.string.schedule_edit_duration_caption,
+                        formatDurationMinutes(minutesBetween(startMinuteOfDay, endMinuteOfDay).toLong())
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
 
         Spacer(Modifier.height(20.dp))
@@ -438,6 +470,103 @@ private fun InvalidRangeCard() {
     }
 }
 
+/**
+ * E-08/E-09/E-10: a midnight-to-midnight track with ticks at 12/6/12/6/12, showing
+ * the chosen window as an accent segment. An overnight window (end before start)
+ * draws as two segments — one to the right edge, one from the left edge — rather
+ * than one segment wrapping backwards, since the track itself doesn't wrap. While
+ * invalid (E-11, start == end) no segment is drawn at all; the track stays empty.
+ */
+@Composable
+private fun TimeRangeBar(
+    startMinuteOfDay: Int,
+    endMinuteOfDay: Int,
+    isInvalid: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val trackColor = MaterialTheme.colorScheme.surfaceVariant
+    val tickColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val accentColor = MaterialTheme.colorScheme.primary
+
+    Column(modifier = modifier) {
+        Canvas(modifier = Modifier.fillMaxWidth().height(16.dp)) {
+            val trackThickness = 6.dp.toPx()
+            val capRadius = trackThickness / 2f
+            val centerY = size.height / 2f
+
+            drawRoundRect(
+                color = trackColor,
+                topLeft = Offset(0f, centerY - capRadius),
+                size = Size(size.width, trackThickness),
+                cornerRadius = CornerRadius(capRadius)
+            )
+
+            val tickHalfHeight = 5.dp.toPx()
+            listOf(0f, 0.25f, 0.5f, 0.75f, 1f).forEach { fraction ->
+                val x = (fraction * size.width).coerceIn(1f, size.width - 1f)
+                drawLine(
+                    color = tickColor.copy(alpha = 0.35f),
+                    start = Offset(x, centerY - tickHalfHeight),
+                    end = Offset(x, centerY + tickHalfHeight),
+                    strokeWidth = 1.5.dp.toPx()
+                )
+            }
+
+            if (!isInvalid) {
+                fun drawSegment(fromFraction: Float, toFraction: Float) {
+                    val fromX = fromFraction * size.width
+                    val toX = toFraction * size.width
+                    if (toX > fromX) {
+                        drawRoundRect(
+                            color = accentColor,
+                            topLeft = Offset(fromX, centerY - capRadius),
+                            size = Size(toX - fromX, trackThickness),
+                            cornerRadius = CornerRadius(capRadius)
+                        )
+                    }
+                }
+                val startFraction = startMinuteOfDay / 1440f
+                val endFraction = endMinuteOfDay / 1440f
+                if (endFraction > startFraction) {
+                    drawSegment(startFraction, endFraction)
+                } else {
+                    // Crosses midnight — the track can't wrap, so it's two segments.
+                    drawSegment(startFraction, 1f)
+                    drawSegment(0f, endFraction)
+                }
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            listOf(0, 360, 720, 1080, 0).forEach { minuteOfDay ->
+                Text(
+                    formatMinuteOfDay(minuteOfDay),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontFamily = NumeralFontFamily,
+                    fontSize = 9.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+/** E-10: shown next to the duration caption only for a window that wraps past midnight. */
+@Composable
+private fun CrossesMidnightTag() {
+    Surface(
+        shape = RoundedCornerShape(percent = 50),
+        color = MaterialTheme.colorScheme.secondaryContainer
+    ) {
+        Text(
+            stringResource(R.string.schedule_edit_crosses_midnight),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+        )
+    }
+}
+
 @Composable
 private fun SectionLabel(text: String) {
     Text(
@@ -447,23 +576,30 @@ private fun SectionLabel(text: String) {
     )
 }
 
+/** E-03/E-04/E-05: the card for whichever of Start/End was tapped most recently gets
+ * a 1.5dp accent border instead of the neutral outline, so it's clear which one the
+ * time dialog that just opened (or last closed) is writing to. */
 @Composable
 private fun TimeBox(
     label: String,
     time: String,
+    isActive: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = Color.Transparent,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        border = BorderStroke(
+            if (isActive) 1.5.dp else 1.dp,
+            if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+        ),
         modifier = modifier.clickable(onClick = onClick)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(4.dp))
-            Text(time, style = MaterialTheme.typography.titleLarge)
+            Text(time, style = MaterialTheme.typography.titleLarge, fontFamily = NumeralFontFamily)
         }
     }
 }

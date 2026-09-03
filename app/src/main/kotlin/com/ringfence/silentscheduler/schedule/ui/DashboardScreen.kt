@@ -1,5 +1,6 @@
 package com.ringfence.silentscheduler.schedule.ui
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -44,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
@@ -240,20 +242,22 @@ private fun StatusCard(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             val active = state.active
+            // Called from this one call site regardless of active/idle — not from
+            // inside the branches below — so its animateFloatAsState/animateColorAsState
+            // instances stay alive across an active<->idle transition instead of being
+            // torn down and recreated. That's what turns "silence just started/ended"
+            // into a felt 900ms sweep of the border filling or draining (H-04's ring
+            // motion, applied to the on/off edge itself, not just the per-second tick).
+            StatusRing(active = active, idleCountdownText = state.idleCountdownText, compact = compact)
+            Spacer(Modifier.height(gap / 2))
+            Text(
+                active?.untilText ?: state.idleSubText,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(gap))
             when {
                 active != null -> {
-                    ActiveCountdownRing(
-                        startEpochMillis = active.startEpochMillis,
-                        endEpochMillis = active.endEpochMillis,
-                        compact = compact
-                    )
-                    Spacer(Modifier.height(gap / 2))
-                    Text(
-                        active.untilText,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(Modifier.height(gap))
                     PrimaryButton(
                         text = stringResource(R.string.dashboard_end_silence_now),
                         onClick = onEndNow,
@@ -274,18 +278,6 @@ private fun StatusCard(
                     }
                 }
                 else -> {
-                    // The design keeps this same ring-shaped card for every idle case —
-                    // has-an-upcoming-trigger, all-schedules-off, and zero-schedules-ever
-                    // all just change the kicker/countdown/sub text, never the card's
-                    // own shape — so its height never jumps depending on schedule state.
-                    IdleStatusRing(countdownText = state.idleCountdownText, compact = compact)
-                    Spacer(Modifier.height(gap / 2))
-                    Text(
-                        state.idleSubText,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(Modifier.height(gap))
                     PrimaryButton(
                         text = stringResource(R.string.dashboard_silent_now),
                         onClick = onSilentNow,
@@ -302,58 +294,55 @@ private fun StatusCard(
  * refresh) and animates the ring arc 900ms linear between ticks, per the design's
  * motion spec. Kept local to the Composable rather than in the ViewModel's uiState
  * so a live countdown doesn't force the whole schedule list to recompose every second.
+ *
+ * Also covers the active<->idle edge itself: because the caller ([StatusCard]) holds
+ * this at one call site instead of branching between two different composables, the
+ * same [animateFloatAsState]/[animateColorAsState] instances carry across silence
+ * starting or ending, so the border sweeps from empty to full (or back) over 900ms
+ * and the accent color fades in/out with it — a felt "it just started/ended," not an
+ * instant cut.
  */
 @Composable
-private fun ActiveCountdownRing(
-    startEpochMillis: Long,
-    endEpochMillis: Long,
+private fun StatusRing(
+    active: ActiveCardState?,
+    idleCountdownText: String,
     compact: Boolean
 ) {
-    var remainingSeconds by remember(startEpochMillis, endEpochMillis) {
-        mutableLongStateOf((endEpochMillis - System.currentTimeMillis()) / 1000)
+    var remainingSeconds by remember(active?.startEpochMillis, active?.endEpochMillis) {
+        mutableLongStateOf(active?.let { (it.endEpochMillis - System.currentTimeMillis()) / 1000 } ?: 0L)
     }
-    LaunchedEffect(startEpochMillis, endEpochMillis) {
+    LaunchedEffect(active?.startEpochMillis, active?.endEpochMillis) {
+        if (active == null) return@LaunchedEffect
         while (true) {
-            remainingSeconds = ((endEpochMillis - System.currentTimeMillis()) / 1000).coerceAtLeast(0)
+            remainingSeconds = ((active.endEpochMillis - System.currentTimeMillis()) / 1000).coerceAtLeast(0)
             delay(1000)
         }
     }
-    val totalSeconds = ((endEpochMillis - startEpochMillis) / 1000).coerceAtLeast(1)
-    val targetFraction = (remainingSeconds.toFloat() / totalSeconds).coerceIn(0f, 1f)
+    val totalSeconds = active?.let { ((it.endEpochMillis - it.startEpochMillis) / 1000).coerceAtLeast(1) } ?: 1L
+    val targetFraction = if (active != null) (remainingSeconds.toFloat() / totalSeconds).coerceIn(0f, 1f) else 0f
     val animatedFraction by animateFloatAsState(
         targetValue = targetFraction,
         animationSpec = tween(durationMillis = 900, easing = LinearEasing),
         label = "silenceRingProgress"
     )
+    val animatedColor by animateColorAsState(
+        targetValue = if (active != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+        animationSpec = tween(durationMillis = 900, easing = LinearEasing),
+        label = "silenceRingColor"
+    )
     // S-01: ~78% size when compact (180dp -> 140dp), same ratio the spec gives for its own 188->147px ring.
-    ProgressRing(ringSize = if (compact) 140.dp else 180.dp, progressFraction = animatedFraction) {
+    ProgressRing(
+        ringSize = if (compact) 140.dp else 180.dp,
+        progressFraction = animatedFraction,
+        accentColor = animatedColor
+    ) {
         Text(
-            stringResource(R.string.dashboard_silent_status),
+            stringResource(if (active != null) R.string.dashboard_silent_status else R.string.dashboard_sound_on_status),
             style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.primary
+            color = animatedColor
         )
         Spacer(Modifier.height(4.dp))
-        val countdownText = formatActiveCountdown(remainingSeconds.coerceAtLeast(0))
-        Text(countdownText, style = countdownTextStyle(countdownText, compact), maxLines = 1)
-    }
-}
-
-/**
- * H-01/H-07: the idle counterpart to [ActiveCountdownRing] — same ring, same size,
- * just static (0% progress, so only the faint track shows) and dim-tinted rather
- * than ticking down in accent color. Exists so the status card is the same shape
- * whether idle or active, instead of collapsing to a bare text block whenever there
- * was nothing to count down to.
- */
-@Composable
-private fun IdleStatusRing(countdownText: String, compact: Boolean) {
-    ProgressRing(ringSize = if (compact) 140.dp else 180.dp, progressFraction = 0f) {
-        Text(
-            stringResource(R.string.dashboard_sound_on_status),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.height(4.dp))
+        val countdownText = if (active != null) formatActiveCountdown(remainingSeconds.coerceAtLeast(0)) else idleCountdownText
         Text(countdownText, style = countdownTextStyle(countdownText, compact), maxLines = 1)
     }
 }
@@ -462,10 +451,10 @@ private fun AllSchedulesPausedPanel(onResumeAll: () -> Unit) {
 private fun ProgressRing(
     ringSize: Dp,
     progressFraction: Float,
+    accentColor: Color,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val trackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
-    val accentColor = MaterialTheme.colorScheme.primary
     Box(modifier = Modifier.size(ringSize), contentAlignment = Alignment.Center) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val strokeWidth = 10.dp.toPx()

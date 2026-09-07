@@ -5,7 +5,10 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +17,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.width
@@ -34,8 +38,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TimeInput
-import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -47,17 +49,28 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ringfence.silentscheduler.R
 import com.ringfence.silentscheduler.core.ringer.RevertPolicy
@@ -100,6 +113,11 @@ private val WEEK_ORDER = listOf(
  * The "Enabled" toggle from the original build-order version is intentionally gone —
  * the source design has no such control here; enabling/disabling a schedule is the
  * Dashboard row switch's job.
+ *
+ * A single tap on Start or End opens the numeric time dialog directly (no
+ * double-tap) — the double-tap gesture this screen used earlier was a discoverability
+ * problem for this app's elderly-skewing audience, since nothing on screen hints
+ * that a second tap does anything different from the first.
  */
 @Composable
 fun ScheduleEditScreen(
@@ -232,20 +250,18 @@ fun ScheduleEditScreen(
                 label = stringResource(R.string.schedule_edit_start),
                 time = formatMinuteOfDay(startMinuteOfDay),
                 isActive = activeTarget == TimeTarget.START,
-                onTap = { activeTarget = TimeTarget.START },
-                onDoubleTap = { activeTarget = TimeTarget.START; editingStart = true },
+                onTap = { activeTarget = TimeTarget.START; editingStart = true },
                 modifier = Modifier.weight(1f)
             )
             TimeBox(
                 label = stringResource(R.string.schedule_edit_end),
                 time = formatMinuteOfDay(endMinuteOfDay),
                 isActive = activeTarget == TimeTarget.END,
-                onTap = { activeTarget = TimeTarget.END },
-                onDoubleTap = { activeTarget = TimeTarget.END; editingEnd = true },
+                onTap = { activeTarget = TimeTarget.END; editingEnd = true },
                 modifier = Modifier.weight(1f)
             )
         }
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(10.dp))
         // E-08/E-09/E-10: always rendered, but with no segment drawn while invalid
         // (E-11) — an empty track rather than hiding the bar entirely.
         TimeRangeBar(
@@ -403,16 +419,22 @@ fun ScheduleEditScreen(
         Spacer(Modifier.height(24.dp))
         }
 
-        EditorActionBar(
-            onCancel = onCancel,
-            onSave = ::save,
-            saveEnabled = canSave,
-            saveLabel = if (initial == null) {
-                stringResource(R.string.schedule_edit_save_new)
-            } else {
-                stringResource(R.string.schedule_edit_save_edit)
-            }
-        )
+        // Hidden while a time dialog is open: that dialog already has its own
+        // Cancel/OK sitting right above the keyboard, so this screen-level pair
+        // would just be a second, redundant set of buttons further down the same
+        // screen rather than something genuinely useful underneath the number pad.
+        if (!editingStart && !editingEnd) {
+            EditorActionBar(
+                onCancel = onCancel,
+                onSave = ::save,
+                saveEnabled = canSave,
+                saveLabel = if (initial == null) {
+                    stringResource(R.string.schedule_edit_save_new)
+                } else {
+                    stringResource(R.string.schedule_edit_save_edit)
+                }
+            )
+        }
     }
 
     if (editingStart) {
@@ -711,17 +733,16 @@ private fun SectionLabel(text: String) {
 
 /** E-03/E-04/E-05: the card for whichever of Start/End was tapped most recently gets
  * a 1.5dp accent border instead of the neutral outline, so it's clear which one the
- * time dialog that just opened (or last closed) is writing to. A single tap only
- * makes this the active target for the always-visible list below; a double tap
- * additionally opens the numeric dialog, so one accidental tap doesn't pop a dialog
- * over what's meant to be a quick scroll-and-pick interaction. */
+ * time dialog that just opened (or last closed) is writing to. A single tap both
+ * marks this the active target and opens the numeric dialog directly — no double-tap,
+ * since a gesture the user has to already know about is a bad fit for this app's
+ * elderly-skewing audience. */
 @Composable
 private fun TimeBox(
     label: String,
     time: String,
     isActive: Boolean,
     onTap: () -> Unit,
-    onDoubleTap: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -731,9 +752,7 @@ private fun TimeBox(
             if (isActive) 1.5.dp else 1.dp,
             if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
         ),
-        modifier = modifier.pointerInput(Unit) {
-            detectTapGestures(onTap = { onTap() }, onDoubleTap = { onDoubleTap() })
-        }
+        modifier = modifier.clickable(onClick = onTap)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -802,28 +821,210 @@ private fun TimeOfDayPickerDialog(
     onDismiss: () -> Unit,
     onConfirm: (Int) -> Unit
 ) {
-    // Numeric entry only — the source design has no dial/clock-face picker at all,
-    // so the earlier dial-view toggle here didn't correspond to anything designed.
-    val state = rememberTimePickerState(
-        initialHour = initialMinuteOfDay / 60,
-        initialMinute = initialMinuteOfDay % 60,
-        is24Hour = false
-    )
+    // Numeric entry only — the source design has no dial/clock-face picker at all.
+    // Hand-built instead of Material3's TimeInput: that component doesn't reselect a
+    // field's contents when it regains focus after the other field was edited, so
+    // tapping back on Hour after typing Minute often failed to register the next
+    // digit as a replacement.
+    //
+    // The fix isn't the select-all itself — it's *when* it happens. Setting the
+    // selection synchronously inside onFocusChanged loses a race with the IME on some
+    // devices: the field keeps showing its old, unselected text even though focus (and
+    // the keyboard) already moved, so the next keystroke lands next to the old digits
+    // instead of replacing them. Deferring the same select-all into a LaunchedEffect —
+    // one recomposition later, after focus has actually settled — is what makes it
+    // stick reliably.
+    val initialHour24 = initialMinuteOfDay / 60
+    var hour12 by remember { mutableIntStateOf(((initialHour24 + 11) % 12) + 1) }
+    var minute by remember { mutableIntStateOf(initialMinuteOfDay % 60) }
+    var isPm by remember { mutableStateOf(initialHour24 >= 12) }
 
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(shape = RoundedCornerShape(28.dp)) {
+    var hourField by remember { mutableStateOf(TextFieldValue(hour12.toString())) }
+    var minuteField by remember { mutableStateOf(TextFieldValue(minute.toString().padStart(2, '0'))) }
+    var hourFocused by remember { mutableStateOf(false) }
+    var minuteFocused by remember { mutableStateOf(false) }
+    val hourFocusRequester = remember { FocusRequester() }
+    val minuteFocusRequester = remember { FocusRequester() }
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    // Opening the dialog already tells the user "enter a time" — making them tap the
+    // Hour box again to actually start typing is a redundant extra step for a picker
+    // whose entire purpose is being one tap away. Focusing (and showing the keyboard
+    // for) Hour as soon as the dialog appears removes that step.
+    LaunchedEffect(Unit) {
+        hourFocusRequester.requestFocus()
+        keyboardController?.show()
+    }
+
+    LaunchedEffect(hourFocused) {
+        if (hourFocused) {
+            hourField = hourField.copy(selection = TextRange(0, hourField.text.length))
+        }
+    }
+    LaunchedEffect(minuteFocused) {
+        if (minuteFocused) {
+            minuteField = minuteField.copy(selection = TextRange(0, minuteField.text.length))
+        }
+    }
+
+    // decorFitsSystemWindows = false, paired with Modifier.imePadding() on the
+    // Surface below: the default (true) has the system resize the dialog's window
+    // around the keyboard on its own, which on some devices leaves this content
+    // sitting under the keyboard instead of shifting up above it. Handling the
+    // keyboard inset directly keeps Cancel/OK visibly above the number pad rather
+    // than hidden behind it.
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(decorFitsSystemWindows = false)) {
+        Surface(shape = RoundedCornerShape(28.dp), modifier = Modifier.imePadding()) {
             Column(
-                modifier = Modifier.padding(24.dp),
+                // A tap anywhere in the dialog that isn't itself a focusable field
+                // (the AM/PM toggle, the gap below it) clears focus and hides the
+                // keyboard — the same "tap outside to dismiss" escape hatch a native
+                // Android EditText gets for free, which Compose's BasicTextField
+                // doesn't: unlike a real View, tapping an unrelated Compose clickable
+                // doesn't automatically take focus away from it.
+                modifier = Modifier
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = { focusManager.clearFocus() }
+                    )
+                    .padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                TimeInput(state = state)
-                Spacer(Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TimeDigitField(
+                        value = hourField,
+                        label = stringResource(R.string.schedule_edit_time_dialog_hour),
+                        focused = hourFocused,
+                        focusRequester = hourFocusRequester,
+                        onFocusChange = { focused -> hourFocused = focused },
+                        onValueChange = { new ->
+                            val digits = new.text.filter { it.isDigit() }.take(2)
+                            val parsed = digits.toIntOrNull()
+                            if (digits.isEmpty() || (parsed != null && parsed in 0..12)) {
+                                hourField = new.copy(text = digits)
+                                if (parsed != null && parsed in 1..12) hour12 = parsed
+                                if (digits.length == 2) {
+                                    focusManager.clearFocus()
+                                    minuteFocusRequester.requestFocus()
+                                }
+                            }
+                        },
+                        imeAction = ImeAction.Next,
+                        onImeAction = { minuteFocusRequester.requestFocus() }
+                    )
+                    Text(
+                        ":",
+                        style = MaterialTheme.typography.displaySmall,
+                        modifier = Modifier.padding(horizontal = 6.dp)
+                    )
+                    TimeDigitField(
+                        value = minuteField,
+                        label = stringResource(R.string.schedule_edit_time_dialog_minute),
+                        focused = minuteFocused,
+                        focusRequester = minuteFocusRequester,
+                        onFocusChange = { focused -> minuteFocused = focused },
+                        onValueChange = { new ->
+                            val digits = new.text.filter { it.isDigit() }.take(2)
+                            val parsed = digits.toIntOrNull()
+                            if (digits.isEmpty() || (parsed != null && parsed in 0..59)) {
+                                minuteField = new.copy(text = digits)
+                                parsed?.let { minute = it }
+                            }
+                        },
+                        imeAction = ImeAction.Done,
+                        onImeAction = { focusManager.clearFocus() }
+                    )
+                    Spacer(Modifier.width(14.dp))
+                    AmPmToggle(isPm = isPm, onChange = { isPm = it })
+                }
+                Spacer(Modifier.height(20.dp))
+                // Always visible — including while the keyboard is up, since
+                // imePadding() on the dialog's own Surface already keeps this row
+                // sitting just above the number pad rather than under it. It's the
+                // *screen's* Cancel/Save row behind this dialog that hides while the
+                // keyboard is open (see ScheduleEditScreen's own Cancel/Save row) —
+                // showing both at once, one right above the number pad and a second,
+                // redundant pair further down past it, was the actual clutter.
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     TextButton(onClick = onDismiss) { Text(stringResource(R.string.schedule_edit_cancel)) }
-                    TextButton(onClick = { onConfirm(state.hour * 60 + state.minute) }) {
+                    TextButton(onClick = {
+                        val hour24 = (hour12 % 12) + if (isPm) 12 else 0
+                        onConfirm(hour24 * 60 + minute)
+                    }) {
                         Text(stringResource(R.string.schedule_edit_time_dialog_ok))
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TimeDigitField(
+    value: TextFieldValue,
+    label: String,
+    focused: Boolean,
+    onFocusChange: (Boolean) -> Unit,
+    onValueChange: (TextFieldValue) -> Unit,
+    imeAction: ImeAction,
+    onImeAction: () -> Unit,
+    focusRequester: FocusRequester = remember { FocusRequester() }
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        BasicTextField(
+            value = value,
+            onValueChange = onValueChange,
+            singleLine = true,
+            textStyle = MaterialTheme.typography.displaySmall.copy(
+                fontFamily = NumeralFontFamily,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center
+            ),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = imeAction),
+            keyboardActions = KeyboardActions(
+                onNext = { onImeAction() },
+                onDone = { onImeAction() }
+            ),
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+            modifier = Modifier
+                .width(76.dp)
+                .focusRequester(focusRequester)
+                .onFocusChanged { onFocusChange(it.isFocused) }
+                .clip(RoundedCornerShape(ChipRadius))
+                .background(if (focused) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant)
+                .padding(vertical = 14.dp),
+            decorationBox = { innerTextField ->
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { innerTextField() }
+            }
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun AmPmToggle(isPm: Boolean, onChange: (Boolean) -> Unit) {
+    Column(
+        modifier = Modifier
+            .clip(RoundedCornerShape(TagRadius + 4.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(3.dp)
+    ) {
+        listOf(false, true).forEach { pm ->
+            val selected = pm == isPm
+            Surface(
+                shape = RoundedCornerShape(TagRadius),
+                color = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                modifier = Modifier.clickable { onChange(pm) }
+            ) {
+                Text(
+                    if (pm) stringResource(R.string.schedule_edit_time_dialog_pm) else stringResource(R.string.schedule_edit_time_dialog_am),
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }

@@ -28,3 +28,10 @@ val Surface2Dark = Color(0xFF25252C)
 val OnSurfaceDark = Color(0xFFFCFCFC)
 val OnSurfaceVariantDark = Color(0xFF8B8B8B)
 val OutlineDark = Color(0xFF48494B)
+
+// The design's own "Delete schedule" button uses a muted dusty rose (#C4646A) that
+// reads as calm rather than alarming. User feedback asked for a clearly red
+// destructive action instead, so this is a deliberate departure from the source
+// mock — a standard vivid red, not sampled from the design.
+val DangerRedLight = Color(0xFFD32F2F)
+val DangerRedDark = Color(0xFFFF6E68)

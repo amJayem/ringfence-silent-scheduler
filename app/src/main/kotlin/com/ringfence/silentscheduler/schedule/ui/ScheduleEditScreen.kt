@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -250,14 +251,16 @@ fun ScheduleEditScreen(
                 label = stringResource(R.string.schedule_edit_start),
                 time = formatMinuteOfDay(startMinuteOfDay),
                 isActive = activeTarget == TimeTarget.START,
-                onTap = { activeTarget = TimeTarget.START; editingStart = true },
+                onSelect = { activeTarget = TimeTarget.START },
+                onOpenNumpad = { activeTarget = TimeTarget.START; editingStart = true },
                 modifier = Modifier.weight(1f)
             )
             TimeBox(
                 label = stringResource(R.string.schedule_edit_end),
                 time = formatMinuteOfDay(endMinuteOfDay),
                 isActive = activeTarget == TimeTarget.END,
-                onTap = { activeTarget = TimeTarget.END; editingEnd = true },
+                onSelect = { activeTarget = TimeTarget.END },
+                onOpenNumpad = { activeTarget = TimeTarget.END; editingEnd = true },
                 modifier = Modifier.weight(1f)
             )
         }
@@ -731,18 +734,27 @@ private fun SectionLabel(text: String) {
     )
 }
 
-/** E-03/E-04/E-05: the card for whichever of Start/End was tapped most recently gets
+/**
+ * E-03/E-04/E-05: the card for whichever of Start/End was tapped most recently gets
  * a 1.5dp accent border instead of the neutral outline, so it's clear which one the
- * time dialog that just opened (or last closed) is writing to. A single tap both
- * marks this the active target and opens the numeric dialog directly — no double-tap,
- * since a gesture the user has to already know about is a bad fit for this app's
- * elderly-skewing audience. */
+ * time dialog that just opened (or last closed) is writing to.
+ *
+ * Tapping the box itself only selects it as the active target — scrolling the
+ * always-visible 15-minute list below to its value — rather than popping the numeric
+ * dialog open immediately. That dialog is a modal that covers the list, so opening
+ * it on every tap made the list's own quick-pick flow unreachable without dismissing
+ * the dialog first. The keyboard icon is the explicit, visible way to reach exact
+ * entry instead, replacing the double-tap gesture this used to require (a hidden
+ * gesture nothing on screen hinted at, a bad fit for this app's elderly-skewing
+ * audience) with a plainly-labeled tap target of its own.
+ */
 @Composable
 private fun TimeBox(
     label: String,
     time: String,
     isActive: Boolean,
-    onTap: () -> Unit,
+    onSelect: () -> Unit,
+    onOpenNumpad: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -752,12 +764,36 @@ private fun TimeBox(
             if (isActive) 1.5.dp else 1.dp,
             if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
         ),
-        modifier = modifier.clickable(onClick = onTap)
+        modifier = modifier.clickable(onClick = onSelect)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(4.dp))
-            Text(time, style = MaterialTheme.typography.titleLarge, fontFamily = NumeralFontFamily)
+        Column(modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 12.dp, end = 4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    label,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+                // The IconButton keeps Material3's own default touch target (48dp) —
+                // only the glyph inside it is drawn smaller, to sit proportionate to
+                // the small label text beside it without shrinking what's actually
+                // tappable. Shrinking the touch target itself would recreate the same
+                // "hard to hit" problem this redesign exists to fix.
+                IconButton(onClick = onOpenNumpad) {
+                    Icon(
+                        painterResource(R.drawable.ic_keyboard),
+                        contentDescription = stringResource(R.string.schedule_edit_time_numpad_cd),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+            Text(
+                time,
+                style = MaterialTheme.typography.titleLarge,
+                fontFamily = NumeralFontFamily,
+                modifier = Modifier.padding(top = 2.dp, bottom = 6.dp)
+            )
         }
     }
 }

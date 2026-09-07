@@ -68,6 +68,7 @@
     <string name="schedule_edit_window_section">WINDOW</string>
     <string name="schedule_edit_start">Start</string>
     <string name="schedule_edit_end">End</string>
+    <string name="schedule_edit_time_numpad_cd">Type an exact time</string>
     <string name="schedule_edit_duration_caption">%1$s of silence</string>
     <string name="schedule_edit_crosses_midnight">Crosses midnight</string>
     <string name="schedule_edit_time_dialog_ok">OK</string>

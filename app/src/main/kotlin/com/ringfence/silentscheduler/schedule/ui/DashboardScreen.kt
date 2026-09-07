@@ -65,6 +65,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
@@ -81,6 +82,7 @@ import com.ringfence.silentscheduler.core.theme.DangerRedLight
 import com.ringfence.silentscheduler.core.time.formatActiveCountdown
 import com.ringfence.silentscheduler.core.ui.PillSwitch
 import com.ringfence.silentscheduler.core.ui.PrimaryButton
+import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 
 /** S-01: below this viewport height, the status ring and card compact so a schedule row still fits without scrolling. */
@@ -141,8 +143,6 @@ fun DashboardScreen(
             }
         }
     }
-    val headerGapDp = maxHeaderCollapseDp - with(density) { headerCollapsePx.toDp() }
-
     Box(modifier = modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -151,7 +151,23 @@ fun DashboardScreen(
                 .padding(horizontal = 20.dp)
                 .nestedScroll(headerNestedScrollConnection)
         ) {
-            Spacer(Modifier.height(headerGapDp))
+            // headerCollapsePx changes on every scroll frame (drag and fling alike),
+            // so reading it directly in the composable body — via a plain
+            // Spacer(Modifier.height(dp)) — recomposed this whole screen once per
+            // pixel scrolled, fighting the LazyColumn's own already-smooth scrolling
+            // with visible stutter. Modifier.layout reads it during the layout phase
+            // instead, which only re-measures this one Spacer rather than recomposing.
+            Spacer(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .layout { measurable, constraints ->
+                        val gapPx = (maxHeaderCollapsePx - headerCollapsePx).roundToInt().coerceAtLeast(0)
+                        val placeable = measurable.measure(constraints.copy(minHeight = 0, maxHeight = gapPx))
+                        layout(placeable.width, gapPx) {
+                            placeable.placeRelative(0, 0)
+                        }
+                    }
+            )
 
             // The day label and the +/settings icons keep almost all of their space —
             // only the gap above them breathes with the scroll — so the header stays

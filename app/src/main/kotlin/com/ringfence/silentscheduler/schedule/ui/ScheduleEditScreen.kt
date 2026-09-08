@@ -1,7 +1,11 @@
 package com.ringfence.silentscheduler.schedule.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -53,9 +57,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
@@ -175,6 +176,11 @@ fun ScheduleEditScreen(
     // border stays on whichever card the user last touched rather than reverting
     // to neutral the moment its dialog closes.
     var activeTarget by remember(initial) { mutableStateOf(TimeTarget.START) }
+    // The quick-pick list stays collapsed until the user has actually touched a
+    // time box — activeTarget itself always has a value (defaulting to START), so
+    // it can't be used on its own to tell "user picked a target" apart from "no
+    // interaction yet."
+    var hasSelectedTimeBox by remember(initial) { mutableStateOf(false) }
 
     // E-11: the only case the source design treats as invalid — a window needs at
     // least two distinct clock times. minutesBetween() would otherwise interpret
@@ -251,28 +257,27 @@ fun ScheduleEditScreen(
                 label = stringResource(R.string.schedule_edit_start),
                 time = formatMinuteOfDay(startMinuteOfDay),
                 isActive = activeTarget == TimeTarget.START,
-                onSelect = { activeTarget = TimeTarget.START },
-                onOpenNumpad = { activeTarget = TimeTarget.START; editingStart = true },
+                onSelect = { activeTarget = TimeTarget.START; hasSelectedTimeBox = true },
+                onOpenNumpad = {
+                    activeTarget = TimeTarget.START
+                    hasSelectedTimeBox = true
+                    editingStart = true
+                },
                 modifier = Modifier.weight(1f)
             )
             TimeBox(
                 label = stringResource(R.string.schedule_edit_end),
                 time = formatMinuteOfDay(endMinuteOfDay),
                 isActive = activeTarget == TimeTarget.END,
-                onSelect = { activeTarget = TimeTarget.END },
-                onOpenNumpad = { activeTarget = TimeTarget.END; editingEnd = true },
+                onSelect = { activeTarget = TimeTarget.END; hasSelectedTimeBox = true },
+                onOpenNumpad = {
+                    activeTarget = TimeTarget.END
+                    hasSelectedTimeBox = true
+                    editingEnd = true
+                },
                 modifier = Modifier.weight(1f)
             )
         }
-        Spacer(Modifier.height(10.dp))
-        // E-08/E-09/E-10: always rendered, but with no segment drawn while invalid
-        // (E-11) — an empty track rather than hiding the bar entirely.
-        TimeRangeBar(
-            startMinuteOfDay = startMinuteOfDay,
-            endMinuteOfDay = endMinuteOfDay,
-            isInvalid = isInvalidRange,
-            modifier = Modifier.fillMaxWidth()
-        )
         Spacer(Modifier.height(10.dp))
         if (isInvalidRange) {
             InvalidRangeCard()
@@ -293,20 +298,32 @@ fun ScheduleEditScreen(
                 )
             }
         }
-        Spacer(Modifier.height(12.dp))
-        TimeSlotList(
-            activeTarget = activeTarget,
-            startMinuteOfDay = startMinuteOfDay,
-            endMinuteOfDay = endMinuteOfDay,
-            onPick = { minuteOfDay ->
-                if (activeTarget == TimeTarget.START) {
-                    startMinuteOfDay = minuteOfDay
-                } else {
-                    endMinuteOfDay = minuteOfDay
-                }
-            },
-            modifier = Modifier.fillMaxWidth()
-        )
+        // Collapsed until the user actually touches Start or End: at rest, the
+        // screen is just the two boxes and the duration line, not a tall list
+        // nobody asked for yet. Selecting a box expands it into view right where
+        // the quick-pick flow needs it.
+        AnimatedVisibility(
+            visible = hasSelectedTimeBox,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically()
+        ) {
+            Column {
+                Spacer(Modifier.height(12.dp))
+                TimeSlotList(
+                    activeTarget = activeTarget,
+                    startMinuteOfDay = startMinuteOfDay,
+                    endMinuteOfDay = endMinuteOfDay,
+                    onPick = { minuteOfDay ->
+                        if (activeTarget == TimeTarget.START) {
+                            startMinuteOfDay = minuteOfDay
+                        } else {
+                            endMinuteOfDay = minuteOfDay
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
 
         Spacer(Modifier.height(20.dp))
 
@@ -518,98 +535,6 @@ private fun InvalidRangeCard() {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onErrorContainer
             )
-        }
-    }
-}
-
-/**
- * E-08/E-09/E-10: a midnight-to-midnight track showing the chosen window as an
- * accent segment, inset inside its own card per the source design — a 26dp track
- * (not a bare thin line) with a single center divider at noon, the segment inset
- * 4dp inside the track's own height rather than filling it edge to edge. An
- * overnight window (end before start) draws as two segments — one to the right
- * edge, one from the left edge — rather than one segment wrapping backwards, since
- * the track itself doesn't wrap. While invalid (E-11, start == end) no segment is
- * drawn at all; the track stays empty.
- */
-@Composable
-private fun TimeRangeBar(
-    startMinuteOfDay: Int,
-    endMinuteOfDay: Int,
-    isInvalid: Boolean,
-    modifier: Modifier = Modifier
-) {
-    val trackColor = MaterialTheme.colorScheme.surfaceVariant
-    val dividerColor = MaterialTheme.colorScheme.outline
-    val accentColor = MaterialTheme.colorScheme.primary
-
-    Surface(
-        shape = RoundedCornerShape(CardRadius),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 2.dp,
-        modifier = modifier
-    ) {
-        Column(modifier = Modifier.padding(horizontal = 13.dp, vertical = 12.dp)) {
-            Canvas(modifier = Modifier.fillMaxWidth().height(26.dp)) {
-                drawRoundRect(
-                    color = trackColor,
-                    size = size,
-                    cornerRadius = CornerRadius(7.dp.toPx())
-                )
-
-                // A single divider at the midpoint (noon) — not a tick per hour marker.
-                drawLine(
-                    color = dividerColor,
-                    start = Offset(size.width / 2f, 0f),
-                    end = Offset(size.width / 2f, size.height),
-                    strokeWidth = 1.dp.toPx()
-                )
-
-                if (!isInvalid) {
-                    val inset = 4.dp.toPx()
-                    val segmentTop = inset
-                    val segmentHeight = size.height - inset * 2
-                    fun drawSegment(fromFraction: Float, toFraction: Float) {
-                        val fromX = fromFraction * size.width
-                        val toX = toFraction * size.width
-                        val segmentWidth = toX - fromX
-                        if (segmentWidth > 0) {
-                            // Capped at half the segment's own width too, not just its
-                            // height — a short-duration window (e.g. 1h out of 24)
-                            // otherwise rounds into a near-circular blob instead of a
-                            // visibly pill-shaped bar.
-                            val radius = minOf(segmentHeight / 2f, segmentWidth / 2f)
-                            drawRoundRect(
-                                color = accentColor,
-                                topLeft = Offset(fromX, segmentTop),
-                                size = Size(segmentWidth, segmentHeight),
-                                cornerRadius = CornerRadius(radius)
-                            )
-                        }
-                    }
-                    val startFraction = startMinuteOfDay / 1440f
-                    val endFraction = endMinuteOfDay / 1440f
-                    if (endFraction > startFraction) {
-                        drawSegment(startFraction, endFraction)
-                    } else {
-                        // Crosses midnight — the track can't wrap, so it's two segments.
-                        drawSegment(startFraction, 1f)
-                        drawSegment(0f, endFraction)
-                    }
-                }
-            }
-            Spacer(Modifier.height(6.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                listOf(0, 360, 720, 1080, 0).forEach { minuteOfDay ->
-                    Text(
-                        formatMinuteOfDay(minuteOfDay),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontFamily = NumeralFontFamily,
-                        fontSize = 9.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
         }
     }
 }

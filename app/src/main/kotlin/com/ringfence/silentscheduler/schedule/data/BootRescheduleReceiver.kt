@@ -7,7 +7,6 @@ import com.ringfence.silentscheduler.schedule.domain.ScheduleRepository
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -23,17 +22,12 @@ class BootRescheduleReceiver : BroadcastReceiver() {
     @Inject
     lateinit var repository: ScheduleRepository
 
-    @Inject
-    lateinit var alarmScheduler: ScheduleAlarmScheduler
-
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
         val pendingResult = goAsync()
         CoroutineScope(Dispatchers.Default).launch {
             try {
-                repository.observeSchedules().first()
-                    .filter { it.isEnabled }
-                    .forEach { alarmScheduler.scheduleNextOccurrence(it) }
+                repository.reconcileAlarms()
             } finally {
                 pendingResult.finish()
             }

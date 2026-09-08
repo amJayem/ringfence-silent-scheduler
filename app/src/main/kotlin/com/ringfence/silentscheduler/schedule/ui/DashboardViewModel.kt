@@ -114,6 +114,14 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch {
             ticker.collect { quickSilenceRepository.reconcileIfExpired() }
         }
+        // Same idea for recurring schedules' own alarms: a process kill (OEM battery
+        // management, not just a full reboot) clears AlarmManager's queue without
+        // firing anything the app can listen for, so a schedule can end up silently
+        // unarmed until it's individually edited or toggled. Re-arming everything
+        // once whenever the Dashboard opens catches that without waiting for either.
+        viewModelScope.launch {
+            repository.reconcileAlarms()
+        }
     }
 
     val uiState: StateFlow<DashboardUiState> = combine(

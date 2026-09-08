@@ -26,6 +26,19 @@ class SchedulingScheduleRepository @Inject constructor(
 
     override fun observeSchedules(): Flow<List<Schedule>> = delegate.observeSchedules()
 
+    // Deliberately calls the alarm scheduler directly rather than going through
+    // rearm() below: rearm()'s extra "silence immediately if already mid-window"
+    // step exists to avoid a few seconds of AlarmManager lag on an interactive
+    // toggle/save, which isn't needed here — if reconciling finds a schedule whose
+    // window already started, scheduleNextOccurrence naturally re-arms its start
+    // alarm for a moment already in the past, which AlarmManager fires as soon as
+    // it can rather than waiting a full cycle, so the same outcome still follows.
+    override suspend fun reconcileAlarms() {
+        delegate.observeSchedules().first()
+            .filter { it.isEnabled }
+            .forEach { alarmScheduler.scheduleNextOccurrence(it) }
+    }
+
     override suspend fun addOrUpdateSchedule(schedule: Schedule) {
         delegate.addOrUpdateSchedule(schedule)
         rearm(schedule)

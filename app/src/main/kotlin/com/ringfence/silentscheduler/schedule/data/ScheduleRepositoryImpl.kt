@@ -45,4 +45,10 @@ class ScheduleRepositoryImpl @Inject constructor(
             current.toBuilder().clearSchedules().addAllSchedules(updated).build()
         }
     }
+
+    // This is the plain DataStore-backed layer with no AlarmManager access by
+    // design (see SchedulingScheduleRepository, the only implementation actually
+    // bound to ScheduleRepository) — a no-op here, since there's nothing this class
+    // itself could re-arm.
+    override suspend fun reconcileAlarms() {}
 }

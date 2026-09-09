@@ -129,11 +129,25 @@ class SilenceNotifier @Inject constructor(
         val contentPendingIntent = PendingIntent.getActivity(
             context, id, contentIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+        // A window with an end action is the "silence is active right now" notification
+        // — the one meant to reassure the user a window is applying for as long as it
+        // actually is. Ongoing (not swipe-dismissable, and not cleared by tapping to open
+        // the app either) so it can't be swiped away while silence is still genuinely
+        // running underneath it, only ever leaving the shade the same way it arrived:
+        // notifySilenceEnded replacing it once the window really ends.
+        val isActiveSession = endAction != null
         val builder = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentText(text)
-            .setAutoCancel(true)
+            // BigTextStyle lets the full text show (not truncated to one line) once the
+            // notification is expanded/pulled down, and on most launchers/OEM skins also
+            // makes a heads-up pop render as the fuller detailed card — a compact
+            // single-line pill otherwise has no room for the "End silence" action to
+            // show without expanding it first.
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setOngoing(isActiveSession)
+            .setAutoCancel(!isActiveSession)
             .setContentIntent(contentPendingIntent)
 
         if (timeoutAfterMillis != null) {

@@ -39,11 +39,22 @@ class SilenceNotifier @Inject constructor(
 
     init {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // Deletes the old DEFAULT-importance channel this ID replaces — otherwise
+            // it lingers forever in system Settings as a dead, unused entry once
+            // nothing posts to it anymore. Harmless no-op if it was never created.
+            notificationManager.deleteNotificationChannel("silence_banner")
             notificationManager.createNotificationChannel(
                 NotificationChannel(
                     CHANNEL_BANNER,
                     context.getString(R.string.notification_channel_banner_name),
-                    NotificationManager.IMPORTANCE_DEFAULT
+                    // HIGH, not DEFAULT: this is what actually makes a "silence just
+                    // started/ended" banner pop up on screen for a moment instead of
+                    // just landing silently in the shade — DEFAULT never shows a
+                    // heads-up banner regardless of anything else set on the
+                    // notification itself. The app never touches DND's own
+                    // interruption filter (only ringer mode), so nothing about this
+                    // app's own silencing suppresses the pop.
+                    NotificationManager.IMPORTANCE_HIGH
                 ).apply { description = context.getString(R.string.notification_channel_banner_desc) }
             )
             notificationManager.createNotificationChannel(
@@ -163,7 +174,12 @@ class SilenceNotifier @Inject constructor(
     }
 
     private companion object {
-        const val CHANNEL_BANNER = "silence_banner"
+        // "_v2": Android never updates an existing channel's importance from code —
+        // once a channel ID has been created on a device at DEFAULT, it stays at
+        // DEFAULT forever even if this file later asks for HIGH. A new ID makes every
+        // install (including ones that already have the old channel from an earlier
+        // build) get a fresh channel at the importance actually requested here.
+        const val CHANNEL_BANNER = "silence_banner_v2"
         const val CHANNEL_SILENT_LOG = "silence_silent_log"
         const val ENDED_NOTIFICATION_TIMEOUT_MILLIS = 3_000L
     }

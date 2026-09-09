@@ -136,15 +136,21 @@ class SilenceNotifier @Inject constructor(
         // running underneath it, only ever leaving the shade the same way it arrived:
         // notifySilenceEnded replacing it once the window really ends.
         val isActiveSession = endAction != null
+        // Tried BigTextStyle, then MessagingStyle (the style a texting app uses to get a
+        // bigger pop with its action already visible, no expansion needed), then also
+        // CATEGORY_MESSAGE on top of that — on this device's system UI, none of the
+        // three changed the heads-up pop's size; it's still a compact single-line pill
+        // either way, only expanding to show the full text and action once pulled down.
+        // That's strong evidence the pop's size is a device/OEM system UI setting, not
+        // something the notification content or metadata controls. Given that,
+        // BigTextStyle + CATEGORY_STATUS is what's left as the semantically honest
+        // choice — this genuinely is an ongoing status update, not a conversation, so
+        // there's no reason to keep pretending otherwise for a payoff that isn't there.
         val builder = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentText(text)
-            // BigTextStyle lets the full text show (not truncated to one line) once the
-            // notification is expanded/pulled down, and on most launchers/OEM skins also
-            // makes a heads-up pop render as the fuller detailed card — a compact
-            // single-line pill otherwise has no room for the "End silence" action to
-            // show without expanding it first.
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setOngoing(isActiveSession)
             .setAutoCancel(!isActiveSession)

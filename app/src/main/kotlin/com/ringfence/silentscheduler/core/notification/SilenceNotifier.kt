@@ -90,6 +90,17 @@ class SilenceNotifier @Inject constructor(
      * must name what really happened; a schedule that started while the phone was
      * already on Vibrate restores Vibrate, not Normal (R-19).
      */
+    /**
+     * Clears a schedule's "silence is active" notification without posting anything in
+     * its place — for a reconciliation check that finds the window already over (and
+     * the ringer already correctly reverted) but the ongoing notification still stuck
+     * from an interrupted transaction, where a normal end never reached the point of
+     * replacing it with [notifySilenceEnded]. Harmless no-op if nothing is posted.
+     */
+    fun cancelActiveNotification(label: String) {
+        notificationManager.cancel(label.hashCode())
+    }
+
     fun notifySilenceEnded(label: String, style: NotificationStyle, restoredModeName: String) {
         post(
             id = label.hashCode(),

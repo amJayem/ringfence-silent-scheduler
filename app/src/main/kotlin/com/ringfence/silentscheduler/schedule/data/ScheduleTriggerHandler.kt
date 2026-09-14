@@ -94,6 +94,12 @@ class ScheduleTriggerHandler @Inject constructor(
             }
         } else {
             Log.i(TAG, "END $scheduleId: was not tracked active, nothing to revert")
+            // Not a no-op: a prior end could have gotten as far as reverting the ringer
+            // and clearing this flag, then been killed before it ever reached
+            // notifySilenceEnded — leaving the "silence is active" notification stuck
+            // on screen indefinitely even though the phone is already back to normal.
+            // Clearing it here is harmless when nothing is actually posted.
+            silenceNotifier.cancelActiveNotification(scheduleLabel(scheduleId))
         }
 
         // Cancels any still-pending natural end alarm for today's occurrence — matters

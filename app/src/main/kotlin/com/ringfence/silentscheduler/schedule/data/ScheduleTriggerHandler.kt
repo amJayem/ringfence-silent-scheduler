@@ -125,10 +125,27 @@ class ScheduleTriggerHandler @Inject constructor(
     suspend fun revertIfCurrentlySilencing(scheduleId: String) {
         val key = activeKey(scheduleId)
         if (preferencesDataStore.data.first()[key] != true) return
+        // Resolved before the caller (SchedulingScheduleRepository.deleteSchedule) is
+        // allowed to actually remove the schedule from the store — otherwise this falls
+        // back to the generic "Schedule" label, whose hashCode() doesn't match the id
+        // the active notification was actually posted under, leaving it stuck forever.
+        val label = scheduleLabel(scheduleId)
         preferencesDataStore.edit { prefs -> prefs.remove(key) }
         val schedule = repository.observeSchedules().first().find { it.id == scheduleId }
         val restoredMode = silencerCoordinator.onWindowEnd(schedule?.revertPolicy ?: RevertPolicy.RESTORE)
         Log.i(TAG, "revertIfCurrentlySilencing $scheduleId: restoredMode=$restoredMode")
+        // Previously left whatever "silence is active" notification this schedule had
+        // posted untouched — disabling/deleting a schedule mid-window correctly
+        // reverted the ringer but the notification kept showing a live countdown for a
+        // session that no longer existed.
+        if (restoredMode != null) {
+            val notificationStyle = settingsRepository.observeSettings().first().notificationStyle
+            silenceNotifier.notifySilenceEnded(label, notificationStyle, restoredMode.toFriendlyRingerModeName())
+        } else {
+            // Another window is still silencing, so there's no "sound is back" to
+            // announce — just clear this schedule's own now-stale notification.
+            silenceNotifier.cancelActiveNotification(label)
+        }
     }
 
     private suspend fun scheduleLabel(scheduleId: String): String =

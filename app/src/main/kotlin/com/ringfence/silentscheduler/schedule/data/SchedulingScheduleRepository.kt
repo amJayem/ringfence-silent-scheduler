@@ -65,8 +65,12 @@ class SchedulingScheduleRepository @Inject constructor(
     }
 
     override suspend fun deleteSchedule(id: String) {
-        delegate.deleteSchedule(id)
+        // disable() must run first: it needs to still find this schedule by id (for its
+        // label and revert policy) to correctly revert the ringer and update the
+        // notification if it's currently silencing — deleting it from the store first
+        // would leave nothing to look up.
         disable(id)
+        delegate.deleteSchedule(id)
         widgetRefresher.refresh()
     }
 

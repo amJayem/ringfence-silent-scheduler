@@ -26,17 +26,36 @@ class SchedulingScheduleRepository @Inject constructor(
 
     override fun observeSchedules(): Flow<List<Schedule>> = delegate.observeSchedules()
 
-    // Deliberately calls the alarm scheduler directly rather than going through
-    // rearm() below: rearm()'s extra "silence immediately if already mid-window"
-    // step exists to avoid a few seconds of AlarmManager lag on an interactive
-    // toggle/save, which isn't needed here — if reconciling finds a schedule whose
-    // window already started, scheduleNextOccurrence naturally re-arms its start
-    // alarm for a moment already in the past, which AlarmManager fires as soon as
-    // it can rather than waiting a full cycle, so the same outcome still follows.
+    // Re-arming alarms alone isn't enough: it only ever schedules a *future*
+    // occurrence, so it can't catch a schedule that's still stuck marked active from
+    // a *past* window whose own end alarm was the one that got lost (the process
+    // kill that clears AlarmManager's queue doesn't discriminate between a schedule's
+    // start and end alarm — either can be the one missing) — the phone stays silenced
+    // indefinitely with nothing left to ever revert it, exactly the class of bug
+    // quickSilenceRepository.reconcileIfExpired() already exists to catch for quick
+    // silence. Checking each schedule's real current-or-next occurrence against "now"
+    // and routing to handleStart/handleEnd (both already idempotent no-ops when
+    // nothing is actually wrong) closes the same gap here.
     override suspend fun reconcileAlarms() {
+        val now = LocalDateTime.now()
         delegate.observeSchedules().first()
             .filter { it.isEnabled }
-            .forEach { alarmScheduler.scheduleNextOccurrence(it) }
+            .forEach { schedule ->
+                if (schedule.repeatDays.isEmpty()) return@forEach
+                val occurrence = RecurringScheduleCalculator.nextOccurrence(schedule, now)
+                if (!occurrence.start.isAfter(now) && occurrence.end.isAfter(now)) {
+                    // Mid-window right now: re-arm this occurrence's end alarm and make
+                    // sure it's actually silencing (a no-op if a lost start alarm isn't
+                    // actually this schedule's problem today).
+                    alarmScheduler.scheduleNextOccurrence(schedule)
+                    triggerHandler.handleStart(schedule.id)
+                } else {
+                    // Not in a window right now — handleEnd reverts if this schedule was
+                    // still tracked active from a past window (the stuck-silent case)
+                    // and re-arms the real next occurrence either way.
+                    triggerHandler.handleEnd(schedule.id, now)
+                }
+            }
     }
 
     override suspend fun addOrUpdateSchedule(schedule: Schedule) {

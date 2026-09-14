@@ -39,6 +39,8 @@ import com.ringfence.silentscheduler.core.theme.RingfenceTheme
 import com.ringfence.silentscheduler.onboarding.DndAccessScreen
 import com.ringfence.silentscheduler.onboarding.ExactAlarmAccessScreen
 import com.ringfence.silentscheduler.onboarding.OnboardingViewModel
+import com.ringfence.silentscheduler.onboarding.QuickSilenceTourScreen
+import com.ringfence.silentscheduler.onboarding.WindowTemplatesScreen
 import com.ringfence.silentscheduler.settings.ui.SettingsViewModel
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -75,21 +77,27 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+/** The onboarding tour's two steps, shown once (see [OnboardingViewModel.isTourCompleted]). */
+private enum class TourStep { TEMPLATES, QUICK_SILENCE }
+
 /**
  * Steps 2+3+7 of the build order: DND permission explainer, exact-alarm explainer,
- * then the full 3-tab app shell (Dashboard/Quick Silence/Settings). The "declined"
- * placeholder below is a dead end for now — CLAUDE.md's revoked-permission banner
- * belongs on the Dashboard itself, not handled here. Exact-alarm access can be
- * skipped ("Not now") without blocking the app — Quick Silence and recurring
- * schedules both fall back to an inexact alarm, just less precisely timed.
+ * the one-time predefined-window + Quick Silence tour, then the full 3-tab app shell
+ * (Dashboard/Quick Silence/Settings). The "declined" placeholder below is a dead end
+ * for now — CLAUDE.md's revoked-permission banner belongs on the Dashboard itself, not
+ * handled here. Exact-alarm access can be skipped ("Not now") without blocking the
+ * app — Quick Silence and recurring schedules both fall back to an inexact alarm, just
+ * less precisely timed.
  */
 @Composable
 private fun RingfenceRoot() {
     val viewModel: OnboardingViewModel = hiltViewModel()
     val isDndAccessGranted by viewModel.isDndAccessGranted.collectAsState()
     val isExactAlarmGranted by viewModel.isExactAlarmGranted.collectAsState()
+    val isTourCompleted by viewModel.isTourCompleted.collectAsState()
     var userDeclinedDnd by remember { mutableStateOf(false) }
     var userDeclinedExactAlarm by remember { mutableStateOf(false) }
+    var tourStep by remember { mutableStateOf(TourStep.TEMPLATES) }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     val latestViewModel = rememberUpdatedState(viewModel)
@@ -123,6 +131,20 @@ private fun RingfenceRoot() {
                 )
             },
             onNotNowClick = { userDeclinedExactAlarm = true }
+        )
+        !isTourCompleted && tourStep == TourStep.TEMPLATES -> WindowTemplatesScreen(
+            onContinue = { templates ->
+                viewModel.createTemplateSchedules(templates)
+                tourStep = TourStep.QUICK_SILENCE
+            },
+            onSkip = { viewModel.completeTour() }
+        )
+        !isTourCompleted -> QuickSilenceTourScreen(
+            onTryIt = {
+                viewModel.startQuickSilenceDemo()
+                viewModel.completeTour()
+            },
+            onFinish = { viewModel.completeTour() }
         )
         else -> MainAppShell()
     }

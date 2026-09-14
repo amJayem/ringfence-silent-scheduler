@@ -12,6 +12,22 @@
     <string name="onboarding_allow_cta">Allow Do Not Disturb access</string>
     <string name="onboarding_not_now">Not now</string>
 
+    <string name="onboarding_templates_headline">Pick your first window</string>
+    <string name="onboarding_templates_body">Start from a common one, or skip and build your own from the Dashboard.</string>
+    <string name="onboarding_template_work_title">Work hours</string>
+    <string name="onboarding_template_work_desc">9:00 AM – 5:00 PM, weekdays</string>
+    <string name="onboarding_template_prayer_title">Prayer times</string>
+    <string name="onboarding_template_prayer_desc">Fajr, Duhr, Asr, Magrib, Esha — every day</string>
+    <string name="onboarding_template_focus_title">Focus block</string>
+    <string name="onboarding_template_focus_desc">10:00 – 11:00 AM, every day</string>
+    <string name="onboarding_templates_continue_cta">Continue</string>
+    <string name="onboarding_templates_skip">Skip</string>
+
+    <string name="onboarding_quick_silence_headline">Need quiet right now?</string>
+    <string name="onboarding_quick_silence_body">Quick Silence mutes your phone instantly for as long as you need — no schedule required. Try a short one now to see it work.</string>
+    <string name="onboarding_quick_silence_try_cta">Try Quick Silence for 1 minute</string>
+    <string name="onboarding_quick_silence_finish">Finish</string>
+
     <string name="exact_alarm_headline">One more permission for on-time silencing.</string>
     <string name="exact_alarm_body">Without exact alarm access, Android may delay turning your sound back on by up to a minute. Allow it so silence windows end exactly when scheduled.</string>
     <string name="exact_alarm_allow_cta">Allow exact alarms</string>

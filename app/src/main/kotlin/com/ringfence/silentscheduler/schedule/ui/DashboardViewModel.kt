@@ -1,8 +1,11 @@
 package com.ringfence.silentscheduler.schedule.ui
 
+import android.content.Context
 import android.media.AudioManager
+import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ringfence.silentscheduler.core.notification.NotificationStyle
 import com.ringfence.silentscheduler.core.ringer.RevertPolicy
 import com.ringfence.silentscheduler.core.ringer.SilenceStyle
 import com.ringfence.silentscheduler.core.ringer.SilencerCoordinator
@@ -17,11 +20,14 @@ import com.ringfence.silentscheduler.schedule.domain.ScheduleOccurrence
 import com.ringfence.silentscheduler.schedule.domain.ScheduleRepository
 import com.ringfence.silentscheduler.schedule.domain.formatUpcomingTrigger
 import com.ringfence.silentscheduler.schedule.domain.toRepeatSummary
+import com.ringfence.silentscheduler.settings.domain.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
@@ -79,7 +85,12 @@ data class DashboardUiState(
     val isAllOff: Boolean = false,
     val rows: List<ScheduleRowUiState> = emptyList(),
     val enabledCount: Int = 0,
-    val totalCount: Int = 0
+    val totalCount: Int = 0,
+    // True when the user wants banner/log notifications (Settings) but the system is
+    // blocking them entirely (POST_NOTIFICATIONS denied/revoked, or the app disabled
+    // in system notification settings) — R-style "don't silently fail" guard, since
+    // SilenceNotifier itself just no-ops in that case with nothing visible to the user.
+    val showNotificationsDisabledBanner: Boolean = false
 )
 
 @HiltViewModel
@@ -87,8 +98,24 @@ class DashboardViewModel @Inject constructor(
     private val repository: ScheduleRepository,
     private val quickSilenceRepository: QuickSilenceRepository,
     private val triggerHandler: ScheduleTriggerHandler,
-    private val silencerCoordinator: SilencerCoordinator
+    private val silencerCoordinator: SilencerCoordinator,
+    private val settingsRepository: SettingsRepository,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
+
+    private val _isSystemNotificationsEnabled =
+        MutableStateFlow(NotificationManagerCompat.from(context).areNotificationsEnabled())
+
+    /**
+     * The runtime permission (or the app-level notification toggle) can change while
+     * the Dashboard isn't in the foreground — from system Settings, or Android's
+     * auto-revoke for unused permissions — so this is re-checked on every resume
+     * (see the Dashboard's own resume observer), not just read once at ViewModel
+     * creation.
+     */
+    fun refreshNotificationPermissionStatus() {
+        _isSystemNotificationsEnabled.value = NotificationManagerCompat.from(context).areNotificationsEnabled()
+    }
 
     // Recomputes derived state (countdowns, NOW badges) even when nothing in
     // storage changed — 30s granularity matches the "Xh Ym" display, no need for
@@ -124,6 +151,13 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
+    private val showNotificationsDisabledBanner: Flow<Boolean> = combine(
+        settingsRepository.observeSettings(),
+        _isSystemNotificationsEnabled
+    ) { settings, systemNotificationsEnabled ->
+        settings.notificationStyle != NotificationStyle.NONE && !systemNotificationsEnabled
+    }
+
     val uiState: StateFlow<DashboardUiState> = combine(
         repository.observeSchedules(),
         quickSilenceRepository.observeState(),
@@ -132,6 +166,8 @@ class DashboardViewModel @Inject constructor(
         manualRefresh
     ) { schedules, quickSilence, globalPriorMode, _, _ ->
         buildState(schedules, quickSilence, globalPriorMode, LocalDateTime.now())
+    }.combine(showNotificationsDisabledBanner) { state, showBanner ->
+        state.copy(showNotificationsDisabledBanner = showBanner)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DashboardUiState())
 
     private fun buildState(

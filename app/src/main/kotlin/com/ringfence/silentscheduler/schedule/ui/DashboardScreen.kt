@@ -1,5 +1,7 @@
 package com.ringfence.silentscheduler.schedule.ui
 
+import android.content.Intent
+import android.provider.Settings
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
@@ -45,6 +47,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
@@ -67,6 +70,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -76,6 +80,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.ringfence.silentscheduler.R
 import com.ringfence.silentscheduler.core.theme.DangerRedDark
 import com.ringfence.silentscheduler.core.theme.DangerRedLight
@@ -104,6 +111,19 @@ fun DashboardScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val selectedIds by viewModel.selectedIds.collectAsState()
+
+    // The notification permission (or the app-level notification toggle) can change
+    // while the Dashboard isn't in the foreground — from system Settings, or Android's
+    // auto-revoke for unused permissions — so it's re-checked on every resume, not
+    // just once when the ViewModel was created.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) viewModel.refreshNotificationPermissionStatus()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     val selectionMode = selectedIds.isNotEmpty()
     var showDeleteConfirm by remember { mutableStateOf(false) }
     // S-01/S-02/S-03: derived from viewport height, not stored — a rotation or a
@@ -220,6 +240,19 @@ fun DashboardScreen(
 
             LazyColumn(modifier = Modifier.weight(1f)) {
                 item {
+                    if (state.showNotificationsDisabledBanner) {
+                        val context = LocalContext.current
+                        NotificationsDisabledBanner(
+                            onOpenNotificationSettings = {
+                                context.startActivity(
+                                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                                        .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                                )
+                            }
+                        )
+                        Spacer(Modifier.height(if (compact) 12.dp else 16.dp))
+                    }
+
                     StatusCard(
                         state = state,
                         compact = compact,
@@ -545,6 +578,54 @@ private fun AllSchedulesPausedPanel(onResumeAll: () -> Unit) {
             ) {
                 Text(
                     stringResource(R.string.dashboard_resume_all),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Shown when the user wants banner/log notifications (Settings) but the system is
+ * blocking them entirely — POST_NOTIFICATIONS denied or revoked, or the app disabled
+ * from system notification settings. Without this, a schedule silently starts/ends
+ * with no visible confirmation and nothing tells the user why.
+ */
+@Composable
+private fun NotificationsDisabledBanner(onOpenNotificationSettings: () -> Unit) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.errorContainer,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    stringResource(R.string.dashboard_notifications_disabled_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onErrorContainer
+                )
+                Text(
+                    stringResource(R.string.dashboard_notifications_disabled_body),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.surface,
+                modifier = Modifier.clickable(onClick = onOpenNotificationSettings)
+            ) {
+                Text(
+                    stringResource(R.string.dashboard_notifications_disabled_cta),
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary,

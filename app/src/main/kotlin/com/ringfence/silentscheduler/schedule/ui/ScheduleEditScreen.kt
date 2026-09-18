@@ -335,10 +335,19 @@ fun ScheduleEditScreen(
                     startMinuteOfDay = startMinuteOfDay,
                     endMinuteOfDay = endMinuteOfDay,
                     onPick = { minuteOfDay ->
+                        // Also closes that box's own inline editor (if it happened to
+                        // be open): picking a row is itself a complete, decisive
+                        // choice, and leaving the editor mounted afterward showed its
+                        // own stale hour/minute digits — a keypad editor's typed
+                        // fields only ever initialize once, from whatever the value
+                        // was when it was opened, so an external update like this one
+                        // never reached them while it stayed open.
                         if (activeTarget == TimeTarget.START) {
                             startMinuteOfDay = minuteOfDay
+                            editingStart = false
                         } else {
                             endMinuteOfDay = minuteOfDay
+                            editingEnd = false
                         }
                     },
                     modifier = Modifier.fillMaxWidth()

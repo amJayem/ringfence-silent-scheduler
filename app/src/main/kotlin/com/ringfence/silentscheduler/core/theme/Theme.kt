@@ -5,9 +5,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
-// onPrimary/onSecondaryContainer aren't derivable from the sampled surface colors —
+// onPrimary/onSecondaryContainer aren't derivable from the token colors —
 // they're set explicitly here because Material3's baseline defaults assume a
 // different primary tone than ours and pick the wrong contrast color otherwise (seen
 // on-device: the Switch thumb turned a muddy dark color in dark mode because
@@ -41,6 +42,12 @@ private val DarkColors = darkColorScheme(
     outline = OutlineDark
 )
 
+/** textFaint (36% ink/paper) — not one of ColorScheme's named slots, so exposed separately. */
+val LocalOnSurfaceFaint = staticCompositionLocalOf { OnSurfaceFaintLight }
+
+/** Hero-panel gradient/ink tokens (doc section 1) — see [HeroPalette]. */
+val LocalHeroPalette = staticCompositionLocalOf { LightHeroPalette }
+
 /**
  * Theme follows the OS setting by default; Settings (step 8) adds a manual
  * Light/Dark/System override on top of [useDarkTheme].
@@ -51,9 +58,16 @@ fun RingfenceTheme(
     content: @Composable () -> Unit
 ) {
     val colors = if (useDarkTheme) DarkColors else LightColors
-    MaterialTheme(
-        colorScheme = colors,
-        typography = RingfenceTypography,
-        content = content
-    )
+    val onSurfaceFaint = if (useDarkTheme) OnSurfaceFaintDark else OnSurfaceFaintLight
+    val heroPalette = if (useDarkTheme) DarkHeroPalette else LightHeroPalette
+    androidx.compose.runtime.CompositionLocalProvider(
+        LocalOnSurfaceFaint provides onSurfaceFaint,
+        LocalHeroPalette provides heroPalette
+    ) {
+        MaterialTheme(
+            colorScheme = colors,
+            typography = RingfenceTypography,
+            content = content
+        )
+    }
 }

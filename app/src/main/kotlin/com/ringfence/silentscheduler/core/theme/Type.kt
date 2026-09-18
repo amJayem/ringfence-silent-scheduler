@@ -7,6 +7,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.ringfence.silentscheduler.R
 
+// "tnum" (tabular figures): every digit renders at the same fixed width, so the
+// hero countdown (doc section 1: "Manrope for UI, IBM Plex Mono for every number...
+// Mono must use tabular figures so the countdown does not jitter") doesn't visibly
+// shift as its digits change once a second.
+const val TabularNumFeature = "tnum"
+
 // Real bundled font files (res/font/manrope.xml, res/font/ibm_plex_mono.xml),
 // matching the source design's own declared typefaces exactly (see
 // SilentApp.dc.html's Google Fonts <link> tag): Manrope for general UI text,
@@ -22,10 +28,13 @@ val NumeralFontFamily = FontFamily(Font(R.font.ibm_plex_mono))
 private val defaultType = Typography()
 
 val RingfenceTypography = Typography(
+    // Hero countdown (doc section 1, Type table): 42sp mono w500, tracking -1.8.
     displayLarge = defaultType.displayLarge.copy(
         fontFamily = NumeralFontFamily,
         fontWeight = FontWeight.Medium,
-        fontSize = 40.sp
+        fontSize = 42.sp,
+        letterSpacing = (-1.8).sp,
+        fontFeatureSettings = TabularNumFeature
     ),
     displayMedium = defaultType.displayMedium.copy(fontFamily = UiFontFamily),
     displaySmall = defaultType.displaySmall.copy(fontFamily = UiFontFamily),

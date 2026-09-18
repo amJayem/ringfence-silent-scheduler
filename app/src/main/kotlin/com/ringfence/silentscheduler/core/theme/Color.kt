@@ -2,36 +2,59 @@ package com.ringfence.silentscheduler.core.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Sampled with a pixel color-picker directly from "Silent Scheduler Android-selection.png"
-// (the Claude Design canvas export), not eyeballed — see DESIGN_NOTES.md for the sampling
-// method. Covers the 4 screens seen so far (Dashboard light/dark, Onboarding, Settings-dark);
-// screens not yet provided (Add/Edit Schedule, light Settings) may introduce new tokens.
+// v2 "Lux" token set — see the "Silent Scheduler v2 (Lux)" design doc, section 1
+// (Design tokens). v2 replaces the whole visual layer; these values are the canonical
+// source now, taken directly from the doc's token tables rather than sampled.
 
-val AccentLight = Color(0xFF7C86C6)
-val AccentSoftLight = Color(0xFFECEDF5)
-val BackgroundLight = Color(0xFFF4F3F1)
+val BackgroundLight = Color(0xFFF5F2ED)
 val SurfaceLight = Color(0xFFFFFFFF)
-// The design's --surface2: a muted neutral fill (distinct from Surface, not
-// accent-tinted like AccentSoft) used for flat controls like the Quick Silence
-// stepper's +/- buttons. Taken directly from design_handoff_silent_scheduler_android's
-// SilentApp.dc.html :root/[data-theme] CSS variables, not sampled.
-val Surface2Light = Color(0xFFEAE8E4)
-val OnSurfaceLight = Color(0xFF17171A)
-val OnSurfaceVariantLight = Color(0xFF8B8B8B)
-val OutlineLight = Color(0xFFE7E7E8)
+val Surface2Light = Color(0xFFEFEAE2)
+val OnSurfaceLight = Color(0xFF191826)
+val OnSurfaceVariantLight = Color(0xFF191826).copy(alpha = 0.58f) // textDim
+val OnSurfaceFaintLight = Color(0xFF191826).copy(alpha = 0.36f) // textFaint
+val OutlineLight = Color(0xFF191826).copy(alpha = 0.09f) // divider
+val AccentLight = Color(0xFF4B49A8)
+val AccentSoftLight = Color(0xFF4B49A8).copy(alpha = 0.11f)
 
-val AccentDark = Color(0xFF8D96D4)
-val AccentSoftDark = Color(0xFF292A38)
-val BackgroundDark = Color(0xFF101013)
-val SurfaceDark = Color(0xFF1A1A1F)
-val Surface2Dark = Color(0xFF25252C)
-val OnSurfaceDark = Color(0xFFFCFCFC)
-val OnSurfaceVariantDark = Color(0xFF8B8B8B)
-val OutlineDark = Color(0xFF48494B)
+val BackgroundDark = Color(0xFF0B0B12)
+val SurfaceDark = Color(0xFF15151F)
+val Surface2Dark = Color(0xFF20202C)
+val OnSurfaceDark = Color(0xFFF2F1F6)
+val OnSurfaceVariantDark = Color(0xFFF2F1F6).copy(alpha = 0.60f) // textDim
+val OnSurfaceFaintDark = Color(0xFFF2F1F6).copy(alpha = 0.36f) // textFaint
+val OutlineDark = Color(0xFFFFFFFF).copy(alpha = 0.08f) // divider
+val AccentDark = Color(0xFF9B99F0)
+val AccentSoftDark = Color(0xFF9B99F0).copy(alpha = 0.16f)
 
-// The design's own "Delete schedule" button uses a muted dusty rose (#C4646A) that
-// reads as calm rather than alarming. User feedback asked for a clearly red
-// destructive action instead, so this is a deliberate departure from the source
-// mock — a standard vivid red, not sampled from the design.
+// User feedback asked for a clearly red destructive action rather than the design's
+// own muted dusty rose — a deliberate departure from the source doc, not sampled.
 val DangerRedLight = Color(0xFFD32F2F)
 val DangerRedDark = Color(0xFFFF6E68)
+
+/** Hero-panel-only tokens (doc section 1, "Hero panel (both themes)") — not part of MaterialTheme's ColorScheme, so kept as a small standalone holder instead of overloading it with app-specific fields. */
+data class HeroPalette(
+    val gradient: List<Color>,
+    val onHero: Color,
+    val onHeroDim: Color,
+    val onHeroFaint: Color,
+    val ringTrack: Color,
+    val heroInk: Color
+)
+
+val LightHeroPalette = HeroPalette(
+    gradient = listOf(Color(0xFF5A57C8), Color(0xFF413F9E), Color(0xFF2E2C74)),
+    onHero = Color.White,
+    onHeroDim = Color.White.copy(alpha = 0.70f),
+    onHeroFaint = Color.White.copy(alpha = 0.74f),
+    ringTrack = Color.White.copy(alpha = 0.20f),
+    heroInk = Color(0xFF2E2C74)
+)
+
+val DarkHeroPalette = HeroPalette(
+    gradient = listOf(Color(0xFF4F4DB8), Color(0xFF343279), Color(0xFF20204F)),
+    onHero = Color.White,
+    onHeroDim = Color.White.copy(alpha = 0.70f),
+    onHeroFaint = Color.White.copy(alpha = 0.74f),
+    ringTrack = Color.White.copy(alpha = 0.17f),
+    heroInk = Color(0xFF1E1D4A)
+)

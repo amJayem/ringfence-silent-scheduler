@@ -4,6 +4,7 @@ import android.content.Intent
 import android.provider.Settings
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -11,6 +12,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,10 +25,12 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -60,8 +64,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -76,6 +82,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -86,9 +93,10 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.ringfence.silentscheduler.R
 import com.ringfence.silentscheduler.core.theme.DangerRedDark
 import com.ringfence.silentscheduler.core.theme.DangerRedLight
+import com.ringfence.silentscheduler.core.theme.LocalHeroPalette
+import com.ringfence.silentscheduler.core.theme.NumeralFontFamily
 import com.ringfence.silentscheduler.core.time.formatActiveCountdown
 import com.ringfence.silentscheduler.core.ui.PillSwitch
-import com.ringfence.silentscheduler.core.ui.PrimaryButton
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 
@@ -168,7 +176,7 @@ fun DashboardScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .safeDrawingPadding()
-                .padding(horizontal = 20.dp)
+                .padding(horizontal = 18.dp)
                 .nestedScroll(headerNestedScrollConnection)
         ) {
             // headerCollapsePx changes on every scroll frame (drag and fling alike),
@@ -253,7 +261,7 @@ fun DashboardScreen(
                         Spacer(Modifier.height(if (compact) 12.dp else 16.dp))
                     }
 
-                    StatusCard(
+                    HeroPanel(
                         state = state,
                         compact = compact,
                         onEndNow = { viewModel.endActiveNow() },
@@ -348,73 +356,157 @@ fun DashboardScreen(
     }
 }
 
+/**
+ * v2 "Lux" doc section 2 (Home — hero panel): replaces the old plain white ring
+ * card with a full-width indigo gradient card. The countdown/ring math itself
+ * ([HeroRing]) is untouched from the v1 [StatusRing] it replaces — only the
+ * container, colours and the CTA (now a white pill on the gradient) changed.
+ */
 @Composable
-private fun StatusCard(
+private fun HeroPanel(
     state: DashboardUiState,
     compact: Boolean,
     onEndNow: () -> Unit,
     onSilentNow: () -> Unit,
     onTurnSoundOn: () -> Unit
 ) {
-    // S-01: card padding 24dp -> 16dp and inner gap 16dp -> 12dp when compact.
-    val cardPadding = if (compact) 16.dp else 24.dp
+    val hero = LocalHeroPalette.current
     val gap = if (compact) 12.dp else 16.dp
 
     Surface(
-        shape = RoundedCornerShape(24.dp),
-        color = MaterialTheme.colorScheme.surface,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier
-                .padding(cardPadding)
-                .fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            val active = state.active
-            // Called from this one call site regardless of active/idle — not from
-            // inside the branches below — so its animateFloatAsState/animateColorAsState
-            // instances stay alive across an active<->idle transition instead of being
-            // torn down and recreated. That's what turns "silence just started/ended"
-            // into a felt 900ms sweep of the border filling or draining (H-04's ring
-            // motion, applied to the on/off edge itself, not just the per-second tick).
-            StatusRing(active = active, idleCountdownText = state.idleCountdownText, compact = compact)
-            Spacer(Modifier.height(gap / 2))
-            Text(
-                active?.untilText ?: state.idleSubText,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+        shape = RoundedCornerShape(30.dp),
+        color = Color.Transparent,
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(
+                elevation = 18.dp,
+                shape = RoundedCornerShape(30.dp),
+                ambientColor = hero.heroInk.copy(alpha = 0.55f),
+                spotColor = hero.heroInk.copy(alpha = 0.55f)
             )
-            Spacer(Modifier.height(gap))
-            when {
-                active != null -> {
-                    PrimaryButton(
-                        text = stringResource(R.string.dashboard_end_silence_now),
-                        onClick = onEndNow,
-                        modifier = Modifier.fillMaxWidth()
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Brush.linearGradient(hero.gradient))
+        ) {
+            // Two decorative, non-interactive radial blooms — doc section 2's
+            // "top-right"/"bottom-left" corner light. Clipped by the parent Surface's
+            // own shape, so nothing needs its own explicit clip here.
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(x = 52.dp, y = (-70).dp)
+                    .size(190.dp)
+                    .background(
+                        Brush.radialGradient(listOf(Color.White.copy(alpha = 0.16f), Color.Transparent)),
+                        CircleShape
                     )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        stringResource(R.string.dashboard_end_silence_caption),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .offset(x = (-46).dp, y = 86.dp)
+                    .size(210.dp)
+                    .background(
+                        Brush.radialGradient(listOf(Color.White.copy(alpha = 0.09f), Color.Transparent)),
+                        CircleShape
                     )
-                    if (active.alreadySilentWarning) {
-                        Spacer(Modifier.height(gap * 0.75f))
-                        AlreadySilentPanel(
-                            // R-15: quick silence has no schedule to attach an override to.
-                            onTurnSoundOn = onTurnSoundOn.takeIf { active.source is ActiveSource.FromSchedule }
+            )
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 26.dp, start = 20.dp, end = 20.dp, bottom = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                val active = state.active
+                // Called from this one call site regardless of active/idle — not from
+                // inside the branches below — so its animateFloatAsState/animateColorAsState
+                // instances stay alive across an active<->idle transition instead of being
+                // torn down and recreated. That's what turns "silence just started/ended"
+                // into a felt 900ms sweep of the ring filling or draining (H-04's ring
+                // motion, applied to the on/off edge itself, not just the per-second tick).
+                HeroRing(active = active, idleCountdownText = state.idleCountdownText, compact = compact)
+                Spacer(Modifier.height(gap / 2))
+                Text(
+                    active?.untilText ?: state.idleSubText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = hero.onHeroDim,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.widthIn(max = 150.dp)
+                )
+                Spacer(Modifier.height(gap))
+                when {
+                    active != null -> {
+                        HeroPillButton(
+                            text = stringResource(R.string.dashboard_end_silence_now),
+                            onClick = onEndNow,
+                            hero = hero
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            stringResource(R.string.dashboard_end_silence_caption),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = hero.onHeroFaint,
+                            textAlign = TextAlign.Center
+                        )
+                        if (active.alreadySilentWarning) {
+                            Spacer(Modifier.height(gap * 0.75f))
+                            AlreadySilentPanel(
+                                // R-15: quick silence has no schedule to attach an override to.
+                                onTurnSoundOn = onTurnSoundOn.takeIf { active.source is ActiveSource.FromSchedule }
+                            )
+                        }
+                    }
+                    else -> {
+                        HeroPillButton(
+                            text = stringResource(R.string.dashboard_silent_now),
+                            onClick = onSilentNow,
+                            hero = hero
                         )
                     }
                 }
-                else -> {
-                    PrimaryButton(
-                        text = stringResource(R.string.dashboard_silent_now),
-                        onClick = onSilentNow,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
             }
+        }
+    }
+}
+
+/**
+ * The hero panel's single white-on-dark button (doc section 2): full-width, height
+ * 56, fully rounded, 16sp w700 label in [HeroPalette.heroInk], lifting 1dp on press.
+ * This is the only white-on-gradient button in the app by design — nothing else
+ * competes with it for attention.
+ */
+@Composable
+private fun HeroPillButton(text: String, onClick: () -> Unit, hero: com.ringfence.silentscheduler.core.theme.HeroPalette) {
+    val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val liftDp by animateDpAsState(targetValue = if (isPressed) 0.dp else 1.dp, label = "heroCtaLift")
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(percent = 50),
+        color = hero.onHero,
+        interactionSource = interactionSource,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .offset(y = -liftDp)
+            .shadow(
+                elevation = 16.dp,
+                shape = RoundedCornerShape(percent = 50),
+                ambientColor = Color.Black.copy(alpha = 0.45f),
+                spotColor = Color.Black.copy(alpha = 0.45f)
+            )
+    ) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+            Text(
+                text,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
+                color = hero.heroInk
+            )
         }
     }
 }
@@ -440,11 +532,12 @@ private const val TICK_DURATION_MILLIS = 900
 private const val TRANSITION_DURATION_MILLIS = 1600
 
 @Composable
-private fun StatusRing(
+private fun HeroRing(
     active: ActiveCardState?,
     idleCountdownText: String,
     compact: Boolean
 ) {
+    val hero = LocalHeroPalette.current
     var remainingSeconds by remember(active?.startEpochMillis, active?.endEpochMillis) {
         mutableLongStateOf(active?.let { (it.endEpochMillis - System.currentTimeMillis()) / 1000 } ?: 0L)
     }
@@ -467,34 +560,37 @@ private fun StatusRing(
         animationSpec = tween(durationMillis = durationMillis, easing = LinearEasing),
         label = "silenceRingProgress"
     )
-    val animatedColor by animateColorAsState(
-        targetValue = if (active != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-        animationSpec = tween(durationMillis = durationMillis, easing = LinearEasing),
-        label = "silenceRingColor"
-    )
-    // S-01: ~78% size when compact (180dp -> 140dp), same ratio the spec gives for its own 188->147px ring.
+    // Doc section 2: "progress = pure white" — the ring itself no longer switches
+    // color between active/idle now that it lives on the gradient; only its fill
+    // fraction (via [animatedFraction]) communicates state, same 900ms sweep as before.
+    // S-01: ~78% size when compact (188dp -> 147dp per the doc's own ratio).
     ProgressRing(
-        ringSize = if (compact) 140.dp else 180.dp,
+        ringSize = if (compact) 147.dp else 188.dp,
+        strokeWidth = 9.dp,
         progressFraction = animatedFraction,
-        accentColor = animatedColor
+        trackColor = hero.ringTrack,
+        accentColor = hero.onHero
     ) {
         Text(
             stringResource(if (active != null) R.string.dashboard_silent_status else R.string.dashboard_sound_on_status),
             style = MaterialTheme.typography.labelMedium,
-            color = animatedColor
+            fontFamily = NumeralFontFamily,
+            fontSize = 10.sp,
+            letterSpacing = 1.3.sp,
+            color = hero.onHeroDim
         )
         Spacer(Modifier.height(4.dp))
         val countdownText = if (active != null) formatActiveCountdown(remainingSeconds.coerceAtLeast(0)) else idleCountdownText
-        Text(countdownText, style = countdownTextStyle(countdownText, compact), maxLines = 1)
+        Text(countdownText, style = countdownTextStyle(countdownText, compact), color = hero.onHero, maxLines = 1)
     }
 }
 
 /**
- * displayLarge (40sp) is sized for a short countdown like "51:27" or "—" — the
+ * displayLarge (42sp) is sized for a short countdown like "51:27" or "—" — the
  * longer "Xh Ym" form (used past the first hour, active or idle) is wide enough at
  * that size to spill past the ring's own stroke instead of staying inside it, since
- * both [ActiveCountdownRing] and [IdleStatusRing] draw this text over a fixed-size
- * ring rather than one that grows with its content.
+ * [HeroRing] draws this text over a fixed-size ring rather than one that grows with
+ * its content.
  */
 @Composable
 private fun countdownTextStyle(text: String, compact: Boolean): TextStyle {
@@ -642,12 +738,13 @@ private fun ProgressRing(
     ringSize: Dp,
     progressFraction: Float,
     accentColor: Color,
+    strokeWidth: Dp = 10.dp,
+    trackColor: Color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val trackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
     Box(modifier = Modifier.size(ringSize), contentAlignment = Alignment.Center) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val strokeWidth = 10.dp.toPx()
+            val strokeWidth = strokeWidth.toPx()
             val arcSize = Size(size.width - strokeWidth, size.height - strokeWidth)
             val topLeft = Offset(strokeWidth / 2, strokeWidth / 2)
             drawArc(

@@ -78,7 +78,8 @@ class SilenceNotifier @Inject constructor(
             id = label.hashCode(),
             style = style,
             title = context.getString(R.string.notification_silence_started_title, label),
-            text = context.getString(R.string.notification_silence_started_text),
+            shortText = context.getString(R.string.notification_silence_started_text_short),
+            fullText = context.getString(R.string.notification_silence_started_text),
             endEpochMillis = endEpochMillis,
             endAction = endAction
         )
@@ -106,7 +107,8 @@ class SilenceNotifier @Inject constructor(
             id = label.hashCode(),
             style = style,
             title = context.getString(R.string.notification_silence_ended_title, label),
-            text = context.getString(R.string.notification_silence_ended_text, restoredModeName),
+            shortText = context.getString(R.string.notification_silence_ended_text_short, restoredModeName),
+            fullText = context.getString(R.string.notification_silence_ended_text, restoredModeName),
             // Once sound is back there's nothing left to act on — the system clears it
             // on its own shortly after so it doesn't linger as clutter. The active
             // (started) notification never gets this: it's still useful for the whole
@@ -119,7 +121,8 @@ class SilenceNotifier @Inject constructor(
         id: Int,
         style: NotificationStyle,
         title: String,
-        text: String,
+        shortText: String,
+        fullText: String,
         endEpochMillis: Long? = null,
         endAction: SilenceEndAction? = null,
         timeoutAfterMillis: Long? = null
@@ -157,12 +160,19 @@ class SilenceNotifier @Inject constructor(
         // BigTextStyle + CATEGORY_STATUS is what's left as the semantically honest
         // choice — this genuinely is an ongoing status update, not a conversation, so
         // there's no reason to keep pretending otherwise for a payoff that isn't there.
+        //
+        // What IS within the app's control: which text actually has to survive that
+        // single fixed-height line. setContentText drives the peek and the collapsed
+        // shade row; BigTextStyle's own bigText only replaces the body once the user
+        // expands it. Passing the same long sentence to both meant the peek truncated
+        // it mid-word ("Sound is muted un…") — shortText is chosen short enough to
+        // fit whole, and the full sentence is still there for anyone who expands it.
         val builder = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
-            .setContentText(text)
+            .setContentText(shortText)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(fullText))
             .setOngoing(isActiveSession)
             .setAutoCancel(!isActiveSession)
             .setContentIntent(contentPendingIntent)

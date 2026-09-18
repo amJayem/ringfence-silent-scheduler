@@ -149,8 +149,14 @@
     <string name="notification_channel_silent_log_name">Silence log</string>
     <string name="notification_channel_silent_log_desc">Silent record of silence start and end, no alert</string>
     <string name="notification_silence_started_title">%1$s — Silent</string>
+    <!-- Shown in the heads-up peek and the collapsed shade row, both of which some
+    OEM system UIs (e.g. Samsung One UI) render as a single fixed-height line with no
+    wrapping — kept short enough to survive that truncation intact rather than ending
+    mid-word. The full sentence below is still shown once the notification is expanded. -->
+    <string name="notification_silence_started_text_short">Ends automatically</string>
     <string name="notification_silence_started_text">Sound is muted until it ends automatically.</string>
     <string name="notification_silence_ended_title">%1$s — Sound restored</string>
+    <string name="notification_silence_ended_text_short">Restored to %1$s</string>
     <string name="notification_silence_ended_text">Ringer restored to %1$s.</string>
     <string name="notification_action_end_silence">End silence</string>
 

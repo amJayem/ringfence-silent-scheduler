@@ -387,10 +387,15 @@ fun ScheduleEditScreen(
             // frequent action on the screen, and it already reads as destructive
             // from its error color alone — it doesn't need its own border competing
             // with the Start/End boxes for attention.
+            // Doc section 3, step 7: "must not shrink: give it a fixed height... or it
+            // collapses when the form overflows" — Material3's default TextButton
+            // min-height (40dp) sits under the doc's 44dp touch-target floor.
             TextButton(
                 onClick = onDelete,
                 colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(46.dp)
             ) {
                 Text(stringResource(R.string.schedule_edit_delete))
             }
@@ -428,11 +433,13 @@ private fun EditorActionBar(
 ) {
     Column {
         HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-        Surface(color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth()) {
+        // Doc section 3, step 8: "bg = canvas" — not the card surface color — with
+        // padding 12/18/16 on Android (top/horizontal/bottom).
+        Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxWidth()) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 18.dp, vertical = 12.dp),
+                    .padding(start = 18.dp, end = 18.dp, top = 12.dp, bottom = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 OutlinedButton(

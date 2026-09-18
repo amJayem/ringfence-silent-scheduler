@@ -259,9 +259,14 @@ fun ScheduleEditScreen(
                 onStartEdit = {
                     activeTarget = TimeTarget.START
                     hasSelectedTimeBox = true
+                    // Only one box edits at a time — force-closing End's editor here
+                    // (rather than leaving it mounted) is safe because its value is
+                    // kept live-synced below, not just committed once at the end.
+                    editingEnd = false
                     editingStart = true
                 },
-                onCommit = { startMinuteOfDay = it; editingStart = false },
+                onValueChange = { startMinuteOfDay = it },
+                onDone = { editingStart = false },
                 modifier = Modifier.weight(1f)
             )
             TimeBox(
@@ -273,9 +278,11 @@ fun ScheduleEditScreen(
                 onStartEdit = {
                     activeTarget = TimeTarget.END
                     hasSelectedTimeBox = true
+                    editingStart = false
                     editingEnd = true
                 },
-                onCommit = { endMinuteOfDay = it; editingEnd = false },
+                onValueChange = { endMinuteOfDay = it },
+                onDone = { editingEnd = false },
                 modifier = Modifier.weight(1f)
             )
         }
@@ -665,7 +672,8 @@ private fun TimeBox(
     isEditing: Boolean,
     onSelect: () -> Unit,
     onStartEdit: () -> Unit,
-    onCommit: (Int) -> Unit,
+    onValueChange: (Int) -> Unit,
+    onDone: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -686,7 +694,8 @@ private fun TimeBox(
             if (isEditing) {
                 InlineTimeEditor(
                     initialMinuteOfDay = minuteOfDay,
-                    onCommit = onCommit,
+                    onValueChange = onValueChange,
+                    onDone = onDone,
                     modifier = Modifier.padding(top = 2.dp, bottom = 6.dp)
                 )
             } else {
@@ -705,18 +714,26 @@ private fun TimeBox(
 
 /**
  * Hour/minute/AM-PM entry inline in place of the plain time text — no modal, no
- * separate confirm button. Auto-advances (and, for minute, auto-commits) the moment
+ * separate confirm button. Auto-advances (and, for minute, auto-finishes) the moment
  * a digit can't possibly be extended into a different valid value: a first hour
- * digit of 2-9 can't become a two-digit hour (20-99 don't exist), so it commits
+ * digit of 2-9 can't become a two-digit hour (20-99 don't exist), so it advances
  * immediately; a first minute digit of 6-9 can't become a two-digit minute (60-99
- * don't exist) either, so a lone "7" commits as "07" rather than waiting for a
+ * don't exist) either, so a lone "7" finishes as "07" rather than waiting for a
  * digit that will never come. Only 1 (hour) and 0-5 (minute) are genuinely
  * ambiguous first digits, so those wait for a possible second one.
+ *
+ * [onValueChange] fires live after every valid keystroke, not just once at the end —
+ * deliberately, so that a schedule's Start and End are never both mid-edit with only
+ * one of them holding the real, in-progress value: tapping straight from Start to
+ * End (before Start's own edit ever reached a natural finishing point) closes Start's
+ * editor immediately from the screen level, and without live-syncing that would have
+ * silently discarded whatever had already been typed into it.
  */
 @Composable
 private fun InlineTimeEditor(
     initialMinuteOfDay: Int,
-    onCommit: (Int) -> Unit,
+    onValueChange: (Int) -> Unit,
+    onDone: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val initialHour24 = initialMinuteOfDay / 60
@@ -729,26 +746,25 @@ private fun InlineTimeEditor(
     var hourFocused by remember { mutableStateOf(false) }
     var minuteFocused by remember { mutableStateOf(false) }
     var hasFocusedOnce by remember { mutableStateOf(false) }
-    // Both flags below exist for the same reason: moving focus (or clearing it)
+    // Exists for the same reason noted below on the select-all effects: moving focus
     // *synchronously* inside onValueChange raced with the IME on-device — the
     // keystroke that triggered the auto-advance sometimes never actually committed
     // into the field, and focus ended up somewhere else entirely (observed: it fell
     // through to the Label field above, with the keyboard switching to that field's
     // alphabetic layout mid-digit-entry). Deferring the actual focus change into a
     // LaunchedEffect one recomposition later — after the triggering keystroke has
-    // fully landed — avoids that race, the same fix already applied below to the
-    // select-all-on-focus behavior.
+    // fully landed — avoids that race.
     var advanceToMinutePending by remember { mutableStateOf(false) }
-    var commitPending by remember { mutableStateOf(false) }
+    var finishPending by remember { mutableStateOf(false) }
     val hourFocusRequester = remember { FocusRequester() }
     val minuteFocusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
 
-    fun commit() {
+    fun pushValue() {
         val minute = minuteField.text.toIntOrNull() ?: 0
         val hour24 = (hour12 % 12) + if (isPm) 12 else 0
-        onCommit(hour24 * 60 + minute)
+        onValueChange(hour24 * 60 + minute)
     }
 
     // Same reasoning as the screen-level docs used to note for the old modal: the
@@ -769,11 +785,11 @@ private fun InlineTimeEditor(
             advanceToMinutePending = false
         }
     }
-    LaunchedEffect(commitPending) {
-        if (commitPending) {
+    LaunchedEffect(finishPending) {
+        if (finishPending) {
             focusManager.clearFocus()
-            commit()
-            commitPending = false
+            onDone()
+            finishPending = false
         }
     }
     // Tapping this box already means "edit this time" — requiring a second tap just
@@ -783,14 +799,15 @@ private fun InlineTimeEditor(
         keyboardController?.show()
     }
     // Neither field holding focus means the user tapped away without an explicit
-    // Done — commit whatever's there instead of silently discarding it. Guarded by
-    // hasFocusedOnce so this doesn't fire on the first composition, before the
-    // LaunchedEffect above has actually claimed focus yet.
+    // Done — exit inline mode the same as an explicit finish (the value is already
+    // live-synced, so there's nothing left to flush). Guarded by hasFocusedOnce so
+    // this doesn't fire on the first composition, before the LaunchedEffect above has
+    // actually claimed focus yet.
     LaunchedEffect(hourFocused, minuteFocused) {
         if (hourFocused || minuteFocused) {
             hasFocusedOnce = true
         } else if (hasFocusedOnce) {
-            commit()
+            onDone()
         }
     }
 
@@ -805,7 +822,10 @@ private fun InlineTimeEditor(
                 val parsed = digits.toIntOrNull()
                 if (digits.isEmpty() || (parsed != null && parsed in 0..12)) {
                     hourField = new.copy(text = digits)
-                    if (parsed != null && parsed in 1..12) hour12 = parsed
+                    if (parsed != null && parsed in 1..12) {
+                        hour12 = parsed
+                        pushValue()
+                    }
                     val singleDigitUnambiguous = digits.length == 1 && (parsed ?: 0) >= 2
                     if (digits.length == 2 || singleDigitUnambiguous) {
                         advanceToMinutePending = true
@@ -826,19 +846,20 @@ private fun InlineTimeEditor(
                 val parsed = digits.toIntOrNull()
                 if (digits.isEmpty() || (parsed != null && parsed in 0..59)) {
                     minuteField = new.copy(text = digits)
+                    if (parsed != null) pushValue()
                     val singleDigitUnambiguous = digits.length == 1 && (parsed ?: 0) >= 6
                     if (digits.length == 2 || singleDigitUnambiguous) {
                         val finalMinute = (parsed ?: 0)
                         minuteField = minuteField.copy(text = finalMinute.toString().padStart(2, '0'))
-                        commitPending = true
+                        finishPending = true
                     }
                 }
             },
             imeAction = ImeAction.Done,
-            onImeAction = { commitPending = true }
+            onImeAction = { finishPending = true }
         )
         Spacer(Modifier.width(6.dp))
-        InlineAmPmToggle(isPm = isPm, onChange = { isPm = it })
+        InlineAmPmToggle(isPm = isPm, onChange = { isPm = it; pushValue() })
     }
 }
 

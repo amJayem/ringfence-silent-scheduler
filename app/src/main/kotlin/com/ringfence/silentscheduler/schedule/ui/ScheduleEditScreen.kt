@@ -9,6 +9,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -226,6 +227,22 @@ fun ScheduleEditScreen(
         modifier = modifier
             .fillMaxSize()
             .safeDrawingPadding()
+            // A tap anywhere on the screen that isn't itself a focusable/clickable
+            // element (a time box, a button, empty space between sections) clears
+            // focus and hides the keyboard — the "tap outside to dismiss" behavior a
+            // plain Android View gets for free, which Compose doesn't: unlike a real
+            // View, tapping an unrelated Compose clickable doesn't automatically take
+            // focus away from whatever else currently holds it. This isn't a phone
+            // setting to enable; every app has to implement it itself. No indication
+            // (ripple) since this is a background dismiss action, not a button.
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = {
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                }
+            )
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,

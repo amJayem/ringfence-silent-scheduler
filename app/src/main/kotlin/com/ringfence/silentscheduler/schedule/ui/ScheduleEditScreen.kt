@@ -182,10 +182,9 @@ fun ScheduleEditScreen(
     // border stays on whichever card the user last touched rather than reverting
     // to neutral the moment its dialog closes.
     var activeTarget by remember(initial) { mutableStateOf(TimeTarget.START) }
-    // The quick-pick list stays collapsed until the user has actually touched a
-    // time box — activeTarget itself always has a value (defaulting to START), so
-    // it can't be used on its own to tell "user picked a target" apart from "no
-    // interaction yet."
+    // The roller stays collapsed until the user has actually touched a time box —
+    // activeTarget itself always has a value (defaulting to START), so it can't be
+    // used on its own to tell "user picked a target" apart from "no interaction yet."
     var hasSelectedTimeBox by remember(initial) { mutableStateOf(false) }
 
     // E-11: the only case the source design treats as invalid — a window needs at
@@ -355,12 +354,10 @@ fun ScheduleEditScreen(
         ) {
             Column {
                 Spacer(Modifier.height(12.dp))
-                // DRAFT: replaces the always-visible 15-minute TimeSlotList (still
-                // defined below, deliberately left in place rather than deleted,
-                // pending confirmation this is the preferred picker) with a rolling
-                // wheel — hour/minute/AM-PM, same idea as a Samsung alarm's own time
-                // picker. Tapping a box's time value still opens the keypad exactly
-                // as before; this only replaces the "browse and tap" alternative.
+                // The confirmed browse-and-scroll picker: hour/minute/AM-PM as a
+                // rolling wheel, same idea as a Samsung alarm's own time picker —
+                // replaced the old flat 15-minute list entirely. Tapping a box's time
+                // value still opens the keypad exactly as before, unaffected by this.
                 TimeRoller(
                     resetKey = activeTarget,
                     minuteOfDay = if (activeTarget == TimeTarget.START) startMinuteOfDay else endMinuteOfDay,
@@ -429,6 +426,10 @@ fun ScheduleEditScreen(
 
         Spacer(Modifier.height(20.dp))
 
+        // Merged with "When it ends" below into one section: both are about how this
+        // schedule behaves, and giving each its own full all-caps header (matching
+        // Label/Window/Repeat) overstated how distinct they really are. "When it
+        // ends" is now a lighter sub-heading rather than a second SectionLabel.
         SectionLabel(stringResource(R.string.schedule_edit_silence_style_section))
         Spacer(Modifier.height(8.dp))
         SegmentedControl(
@@ -444,16 +445,26 @@ fun ScheduleEditScreen(
             onSelect = { silenceStyle = it }
         )
 
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(16.dp))
 
-        SectionLabel(stringResource(R.string.schedule_edit_revert_section))
+        Text(
+            stringResource(R.string.schedule_edit_revert_section),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         Spacer(Modifier.height(8.dp))
+        // No border here (unlike the time boxes) — this card doesn't need to compete
+        // for attention the way the primary Start/End controls do; a soft tonal fill
+        // is enough to group the two options without another stroke on the screen.
         Surface(
             shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.surface,
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
+                // Each option's own subtitle already says what it does — a further
+                // hint line repeating the same thing below the whole card was pure
+                // duplication, removed rather than kept "just in case."
                 RadioOptionRow(
                     title = stringResource(R.string.schedule_edit_revert_restore_title),
                     subtitle = stringResource(R.string.schedule_edit_revert_restore_subtitle),
@@ -468,24 +479,16 @@ fun ScheduleEditScreen(
                 )
             }
         }
-        Spacer(Modifier.height(6.dp))
-        Text(
-            text = if (revertPolicy == RevertPolicy.SOUND) {
-                stringResource(R.string.schedule_edit_revert_hint_sound)
-            } else {
-                stringResource(R.string.schedule_edit_revert_hint_restore)
-            },
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
 
         if (initial != null && onDelete != null) {
             Spacer(Modifier.height(24.dp))
-            OutlinedButton(
+            // A plain text action, not another outlined pill: this is the least
+            // frequent action on the screen, and it already reads as destructive
+            // from its error color alone — it doesn't need its own border competing
+            // with the Start/End boxes for attention.
+            TextButton(
                 onClick = onDelete,
-                shape = RoundedCornerShape(percent = 50),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(stringResource(R.string.schedule_edit_delete))
@@ -585,9 +588,8 @@ private const val ROLLER_VISIBLE_ROWS = 3
 
 /**
  * Rolling wheel time entry — hour, minute, AM/PM as three independently flingable
- * columns — the "browse and scroll" alternative to the keypad, replacing the flat
- * 15-minute [TimeSlotList] below (kept, unused, until this is confirmed as the
- * preferred picker rather than deleted outright).
+ * columns — the confirmed "browse and scroll" alternative to the keypad, replacing
+ * the old flat 15-minute list.
  *
  * [resetKey] exists for the same reason [InlineTimeEditor]'s value has to be
  * live-synced rather than committed once at the end: this composable's own
@@ -759,99 +761,6 @@ private fun RollerColumn(
     }
 }
 
-private const val MINUTES_PER_SLOT = 15
-private const val SLOTS_PER_DAY = 24 * 60 / MINUTES_PER_SLOT
-
-/**
- * DRAFT: kept unused rather than deleted, pending confirmation that [TimeRoller]
- * above is the preferred replacement — see its call site in [ScheduleEditScreen].
- *
- * E-06/E-07: an always-visible scrolling list of every 15-minute slot across all 24
- * hours — free choice, not a preset shortlist — rather than a modal. Tapping a row
- * writes to whichever of Start/End is the current active target; only the row
- * matching *that* target's own current value is highlighted and hinted, matching
- * the source design (a row matching the *other* field's value isn't marked here).
- */
-@Suppress("unused")
-@Composable
-private fun TimeSlotList(
-    activeTarget: TimeTarget,
-    startMinuteOfDay: Int,
-    endMinuteOfDay: Int,
-    onPick: (Int) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val listState = rememberLazyListState()
-    val activeMinuteOfDay = if (activeTarget == TimeTarget.START) startMinuteOfDay else endMinuteOfDay
-    val startHint = stringResource(R.string.schedule_edit_start).lowercase()
-    val endHint = stringResource(R.string.schedule_edit_end).lowercase()
-
-    // Keeps the active target's current value in view whenever it changes — either
-    // from switching which card is active, or picking a new value for it.
-    LaunchedEffect(activeTarget, activeMinuteOfDay) {
-        val targetIndex = (activeMinuteOfDay / MINUTES_PER_SLOT - 2).coerceIn(0, SLOTS_PER_DAY - 1)
-        listState.scrollToItem(targetIndex)
-    }
-
-    Surface(
-        shape = RoundedCornerShape(CardRadius),
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-        modifier = modifier.height(172.dp)
-    ) {
-        LazyColumn(state = listState, modifier = Modifier.padding(6.dp)) {
-            items(SLOTS_PER_DAY) { index ->
-                val minuteOfDay = index * MINUTES_PER_SLOT
-                val isActiveTargetValue = minuteOfDay == activeMinuteOfDay
-                TimeSlotRow(
-                    label = formatMinuteOfDay(minuteOfDay),
-                    hint = if (isActiveTargetValue) {
-                        if (activeTarget == TimeTarget.START) startHint else endHint
-                    } else {
-                        null
-                    },
-                    selected = isActiveTargetValue,
-                    onClick = { onPick(minuteOfDay) }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun TimeSlotRow(
-    label: String,
-    hint: String?,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(38.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .background(if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp)
-    ) {
-        Text(
-            label,
-            style = MaterialTheme.typography.bodyMedium,
-            fontFamily = NumeralFontFamily,
-            color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f)
-        )
-        if (hint != null) {
-            Text(
-                hint,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
 /** E-10: shown next to the duration caption only for a window that wraps past midnight. */
 @Composable
 private fun CrossesMidnightTag() {
@@ -886,10 +795,10 @@ private fun SectionLabel(text: String) {
 /**
  * E-03/E-04/E-05: the card for whichever of Start/End was tapped most recently gets
  * a 1.5dp accent border instead of the neutral outline, so it's clear which one the
- * always-visible 15-minute list below is currently scrolled to.
+ * roller below is currently centered on.
  *
- * Tapping the label row only selects this box as the active target (scrolling the
- * quick-pick list to its value) — tapping the time value itself, inspired by a
+ * Tapping the label row only selects this box as the active target (centering the
+ * roller on its value) — tapping the time value itself, inspired by a
  * Samsung alarm's own time picker, switches that value in place into precise
  * hour/minute entry, no modal dialog and no separate keyboard icon required. The
  * two tap targets don't conflict: Compose's nested `clickable` on the time text

@@ -101,8 +101,6 @@
     <string name="schedule_edit_revert_restore_subtitle">If your phone was already silent before the window, it stays silent afterwards.</string>
     <string name="schedule_edit_revert_sound_title">Always turn sound on</string>
     <string name="schedule_edit_revert_sound_subtitle">Sound is switched on at the end, whatever the phone was set to before.</string>
-    <string name="schedule_edit_revert_hint_sound">Safest choice — you can never be left on silent by this schedule.</string>
-    <string name="schedule_edit_revert_hint_restore">Respects a phone you had already muted yourself.</string>
     <string name="schedule_edit_days_required">Select at least one day</string>
     <string name="schedule_edit_delete">Delete schedule</string>
 

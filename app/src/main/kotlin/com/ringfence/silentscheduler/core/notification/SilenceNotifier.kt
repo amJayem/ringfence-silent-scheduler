@@ -77,8 +77,12 @@ class SilenceNotifier @Inject constructor(
         post(
             id = label.hashCode(),
             style = style,
+            // The title alone ("Silent — Label") is meant to be the whole visible
+            // message on the peek and the collapsed shade row — no separate status
+            // line underneath it. The explanatory sentence still exists (below) but
+            // only surfaces once the notification is actually expanded.
             title = context.getString(R.string.notification_silence_started_title, label),
-            shortText = context.getString(R.string.notification_silence_started_text_short),
+            shortText = "",
             fullText = context.getString(R.string.notification_silence_started_text),
             endEpochMillis = endEpochMillis,
             endAction = endAction
@@ -107,7 +111,7 @@ class SilenceNotifier @Inject constructor(
             id = label.hashCode(),
             style = style,
             title = context.getString(R.string.notification_silence_ended_title, label),
-            shortText = context.getString(R.string.notification_silence_ended_text_short, restoredModeName),
+            shortText = "",
             fullText = context.getString(R.string.notification_silence_ended_text, restoredModeName),
             // Once sound is back there's nothing left to act on — the system clears it
             // on its own shortly after so it doesn't linger as clutter. The active
@@ -164,9 +168,9 @@ class SilenceNotifier @Inject constructor(
         // What IS within the app's control: which text actually has to survive that
         // single fixed-height line. setContentText drives the peek and the collapsed
         // shade row; BigTextStyle's own bigText only replaces the body once the user
-        // expands it. Passing the same long sentence to both meant the peek truncated
-        // it mid-word ("Sound is muted un…") — shortText is chosen short enough to
-        // fit whole, and the full sentence is still there for anyone who expands it.
+        // expands it. Passing shortText = "" here means the peek and the collapsed row
+        // show nothing but the title itself ("Silent — Label" / "Restored — Label") —
+        // the full sentence only ever appears once the notification is expanded.
         val builder = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)

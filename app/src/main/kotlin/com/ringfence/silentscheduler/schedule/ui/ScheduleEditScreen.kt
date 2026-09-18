@@ -1,18 +1,10 @@
 package com.ringfence.silentscheduler.schedule.ui
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -64,20 +56,12 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -178,19 +162,10 @@ fun ScheduleEditScreen(
         mutableStateOf(initial?.revertPolicy ?: defaultRevertPolicy)
     }
 
-    // Inline-editing (tap the time itself to type it, à la a Samsung alarm's time
-    // wheel) rather than a modal dialog over the whole screen — see TimeBox below.
-    var editingStart by remember { mutableStateOf(false) }
-    var editingEnd by remember { mutableStateOf(false) }
-    // E-04/E-05: which of Start/End is the "active target" — persists across the
-    // dialog opening and closing, unlike editingStart/editingEnd, so the accent
-    // border stays on whichever card the user last touched rather than reverting
-    // to neutral the moment its dialog closes.
+    // v2 "Lux" doc section 3: which half of the Start/End segmented tab is active —
+    // the wheel below always targets this one and re-scrolls to its value when it
+    // changes (see [TimeRoller]'s `resetKey`).
     var activeTarget by remember(initial) { mutableStateOf(TimeTarget.START) }
-    // The roller stays collapsed until the user has actually touched a time box —
-    // activeTarget itself always has a value (defaulting to START), so it can't be
-    // used on its own to tell "user picked a target" apart from "no interaction yet."
-    var hasSelectedTimeBox by remember(initial) { mutableStateOf(false) }
 
     // E-11: the only case the source design treats as invalid — a window needs at
     // least two distinct clock times. minutesBetween() would otherwise interpret
@@ -288,100 +263,21 @@ fun ScheduleEditScreen(
 
         SectionLabel(stringResource(R.string.schedule_edit_window_section))
         Spacer(Modifier.height(8.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            TimeBox(
-                label = stringResource(R.string.schedule_edit_start),
-                minuteOfDay = startMinuteOfDay,
-                isActive = activeTarget == TimeTarget.START,
-                isEditing = editingStart,
-                onSelect = { activeTarget = TimeTarget.START; hasSelectedTimeBox = true },
-                onStartEdit = {
-                    activeTarget = TimeTarget.START
-                    hasSelectedTimeBox = true
-                    // Only one box edits at a time — force-closing End's editor here
-                    // (rather than leaving it mounted) is safe because its value is
-                    // kept live-synced below, not just committed once at the end.
-                    editingEnd = false
-                    editingStart = true
-                },
-                onValueChange = { startMinuteOfDay = it },
-                onDone = { editingStart = false },
-                modifier = Modifier.weight(1f)
-            )
-            TimeBox(
-                label = stringResource(R.string.schedule_edit_end),
-                minuteOfDay = endMinuteOfDay,
-                isActive = activeTarget == TimeTarget.END,
-                isEditing = editingEnd,
-                onSelect = { activeTarget = TimeTarget.END; hasSelectedTimeBox = true },
-                onStartEdit = {
-                    activeTarget = TimeTarget.END
-                    hasSelectedTimeBox = true
-                    editingStart = false
-                    editingEnd = true
-                },
-                onValueChange = { endMinuteOfDay = it },
-                onDone = { editingEnd = false },
-                modifier = Modifier.weight(1f)
-            )
-        }
-        Spacer(Modifier.height(10.dp))
-        if (isInvalidRange) {
-            InvalidRangeCard()
-        } else {
-            val crossesMidnight = endMinuteOfDay < startMinuteOfDay
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (crossesMidnight) {
-                    CrossesMidnightTag()
-                    Spacer(Modifier.width(8.dp))
+        WindowCard(
+            startMinuteOfDay = startMinuteOfDay,
+            endMinuteOfDay = endMinuteOfDay,
+            activeTarget = activeTarget,
+            onTargetChange = { activeTarget = it },
+            isInvalidRange = isInvalidRange,
+            onValueChange = { minuteOfDay ->
+                if (activeTarget == TimeTarget.START) {
+                    startMinuteOfDay = minuteOfDay
+                } else {
+                    endMinuteOfDay = minuteOfDay
                 }
-                Text(
-                    stringResource(
-                        R.string.schedule_edit_duration_caption,
-                        formatDurationMinutes(minutesBetween(startMinuteOfDay, endMinuteOfDay).toLong())
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-        // Collapsed until the user actually touches Start or End: at rest, the
-        // screen is just the two boxes and the duration line, not a tall list
-        // nobody asked for yet. Selecting a box expands it into view right where
-        // the quick-pick flow needs it.
-        AnimatedVisibility(
-            visible = hasSelectedTimeBox,
-            enter = fadeIn() + expandVertically(),
-            exit = fadeOut() + shrinkVertically()
-        ) {
-            Column {
-                Spacer(Modifier.height(12.dp))
-                // The confirmed browse-and-scroll picker: hour/minute/AM-PM as a
-                // rolling wheel, same idea as a Samsung alarm's own time picker —
-                // replaced the old flat 15-minute list entirely. Tapping a box's time
-                // value still opens the keypad exactly as before, unaffected by this.
-                TimeRoller(
-                    resetKey = activeTarget,
-                    minuteOfDay = if (activeTarget == TimeTarget.START) startMinuteOfDay else endMinuteOfDay,
-                    onValueChange = { minuteOfDay ->
-                        // Same reasoning as the old list's onPick: also closes that
-                        // box's own inline editor, since its typed fields only ever
-                        // initialize once and wouldn't otherwise notice this update.
-                        if (activeTarget == TimeTarget.START) {
-                            startMinuteOfDay = minuteOfDay
-                            editingStart = false
-                        } else {
-                            endMinuteOfDay = minuteOfDay
-                            editingEnd = false
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        }
+            },
+            modifier = Modifier.fillMaxWidth()
+        )
 
         Spacer(Modifier.height(20.dp))
 
@@ -503,22 +399,18 @@ fun ScheduleEditScreen(
         Spacer(Modifier.height(24.dp))
         }
 
-        // Hidden while a Start/End box is being typed into inline: the on-screen
-        // keyboard already covers this bar's usual position, and there's nothing
-        // useful this pair of buttons could do mid-entry that tapping away from the
-        // field (which commits it) or the keyboard's own Done action doesn't already.
-        if (!editingStart && !editingEnd) {
-            EditorActionBar(
-                onCancel = onCancel,
-                onSave = ::save,
-                saveEnabled = canSave,
-                saveLabel = if (initial == null) {
-                    stringResource(R.string.schedule_edit_save_new)
-                } else {
-                    stringResource(R.string.schedule_edit_save_edit)
-                }
-            )
-        }
+        // v2 "Lux" doc section 3: fixed bottom bar, pinned outside the scroll area —
+        // there's no more inline keypad to cover it, so it's always visible.
+        EditorActionBar(
+            onCancel = onCancel,
+            onSave = ::save,
+            saveEnabled = canSave,
+            saveLabel = if (initial == null) {
+                stringResource(R.string.schedule_edit_save_new)
+            } else {
+                stringResource(R.string.schedule_edit_save_edit)
+            }
+        )
     }
 }
 
@@ -850,272 +742,131 @@ private fun SectionLabel(text: String) {
 }
 
 /**
- * E-03/E-04/E-05: the card for whichever of Start/End was tapped most recently gets
- * a 1.5dp accent border instead of the neutral outline, so it's clear which one the
- * roller below is currently centered on.
- *
- * Tapping the label row only selects this box as the active target (centering the
- * roller on its value) — tapping the time value itself, inspired by a
- * Samsung alarm's own time picker, switches that value in place into precise
- * hour/minute entry, no modal dialog and no separate keyboard icon required. The
- * two tap targets don't conflict: Compose's nested `clickable` on the time text
- * consumes the tap there before it would otherwise reach the card's own `onSelect`.
+ * v2 "Lux" doc section 3 ("Add / edit window — the important one"): a single card
+ * holding the Start/End segmented tab, the shared wheel, and a footer with the
+ * duration caption + "Crosses midnight" tag — replacing the old two side-by-side
+ * time boxes plus their own separate duration/tag row. Tapping a tab half only
+ * re-targets the wheel (no more inline keypad entry — the wheel is the only input
+ * now, per the doc).
  */
 @Composable
-private fun TimeBox(
-    label: String,
-    minuteOfDay: Int,
-    isActive: Boolean,
-    isEditing: Boolean,
-    onSelect: () -> Unit,
-    onStartEdit: () -> Unit,
+private fun WindowCard(
+    startMinuteOfDay: Int,
+    endMinuteOfDay: Int,
+    activeTarget: TimeTarget,
+    onTargetChange: (TimeTarget) -> Unit,
     onValueChange: (Int) -> Unit,
-    onDone: () -> Unit,
+    isInvalidRange: Boolean,
     modifier: Modifier = Modifier
 ) {
     Surface(
-        shape = RoundedCornerShape(CardRadius),
-        color = Color.Transparent,
-        // The v2 Lux "divider" token (colorScheme.outline) is a near-invisible 8-9%
-        // overlay — right for a hairline row separator, but far too faint for a
-        // box outline that has to read clearly on its own, especially for the
-        // *inactive* box (isActive already gets a clearly visible accent border).
-        // Use onSurfaceVariant's own alpha instead so it stays visible in both themes.
-        border = BorderStroke(
-            if (isActive) 1.5.dp else 1.dp,
-            if (isActive) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
-            }
-        ),
-        modifier = modifier.clickable(onClick = onSelect)
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 3.dp,
+        modifier = modifier
     ) {
-        Column(modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 12.dp, end = 16.dp)) {
-            Text(
-                label,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+        Column {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                modifier = Modifier
+                    .padding(8.dp)
+                    .fillMaxWidth()
+            ) {
+                Row(modifier = Modifier.padding(6.dp)) {
+                    TimeTabHalf(
+                        label = stringResource(R.string.schedule_edit_start),
+                        minuteOfDay = startMinuteOfDay,
+                        isSelected = activeTarget == TimeTarget.START,
+                        onClick = { onTargetChange(TimeTarget.START) },
+                        modifier = Modifier.weight(1f)
+                    )
+                    TimeTabHalf(
+                        label = stringResource(R.string.schedule_edit_end),
+                        minuteOfDay = endMinuteOfDay,
+                        isSelected = activeTarget == TimeTarget.END,
+                        onClick = { onTargetChange(TimeTarget.END) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+
+            TimeRoller(
+                resetKey = activeTarget,
+                minuteOfDay = if (activeTarget == TimeTarget.START) startMinuteOfDay else endMinuteOfDay,
+                onValueChange = onValueChange,
+                modifier = Modifier.fillMaxWidth()
             )
-            if (isEditing) {
-                InlineTimeEditor(
-                    initialMinuteOfDay = minuteOfDay,
-                    onValueChange = onValueChange,
-                    onDone = onDone,
-                    modifier = Modifier.padding(top = 2.dp, bottom = 6.dp)
-                )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+
+            if (isInvalidRange) {
+                Box(modifier = Modifier.padding(16.dp)) {
+                    InvalidRangeCard()
+                }
             } else {
-                Text(
-                    formatMinuteOfDay(minuteOfDay),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontFamily = NumeralFontFamily,
+                val crossesMidnight = endMinuteOfDay <= startMinuteOfDay
+                Row(
                     modifier = Modifier
-                        .padding(top = 2.dp, bottom = 6.dp)
-                        .clickable(onClick = onStartEdit)
-                )
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        stringResource(
+                            R.string.schedule_edit_duration_caption,
+                            formatDurationMinutes(minutesBetween(startMinuteOfDay, endMinuteOfDay).toLong())
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (crossesMidnight) {
+                        CrossesMidnightTag()
+                    }
+                }
             }
         }
     }
 }
 
-/**
- * Hour/minute/AM-PM entry inline in place of the plain time text — no modal, no
- * separate confirm button. Auto-advances (and, for minute, auto-finishes) the moment
- * a digit can't possibly be extended into a different valid value: a first hour
- * digit of 2-9 can't become a two-digit hour (20-99 don't exist), so it advances
- * immediately; a first minute digit of 6-9 can't become a two-digit minute (60-99
- * don't exist) either, so a lone "7" finishes as "07" rather than waiting for a
- * digit that will never come. Only 1 (hour) and 0-5 (minute) are genuinely
- * ambiguous first digits, so those wait for a possible second one.
- *
- * [onValueChange] fires live after every valid keystroke, not just once at the end —
- * deliberately, so that a schedule's Start and End are never both mid-edit with only
- * one of them holding the real, in-progress value: tapping straight from Start to
- * End (before Start's own edit ever reached a natural finishing point) closes Start's
- * editor immediately from the screen level, and without live-syncing that would have
- * silently discarded whatever had already been typed into it.
- */
+/** One half of the Start/End segmented tab — doc section 3: label stacked over the
+ * time value, the selected half getting a raised surface "thumb" and an accent-tinted
+ * value. */
 @Composable
-private fun InlineTimeEditor(
-    initialMinuteOfDay: Int,
-    onValueChange: (Int) -> Unit,
-    onDone: () -> Unit,
+private fun TimeTabHalf(
+    label: String,
+    minuteOfDay: Int,
+    isSelected: Boolean,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val initialHour24 = initialMinuteOfDay / 60
-    var hour12 by remember { mutableIntStateOf(((initialHour24 + 11) % 12) + 1) }
-    var isPm by remember { mutableStateOf(initialHour24 >= 12) }
-    var hourField by remember { mutableStateOf(TextFieldValue(hour12.toString())) }
-    var minuteField by remember {
-        mutableStateOf(TextFieldValue((initialMinuteOfDay % 60).toString().padStart(2, '0')))
-    }
-    var hourFocused by remember { mutableStateOf(false) }
-    var minuteFocused by remember { mutableStateOf(false) }
-    var hasFocusedOnce by remember { mutableStateOf(false) }
-    // Exists for the same reason noted below on the select-all effects: moving focus
-    // *synchronously* inside onValueChange raced with the IME on-device — the
-    // keystroke that triggered the auto-advance sometimes never actually committed
-    // into the field, and focus ended up somewhere else entirely (observed: it fell
-    // through to the Label field above, with the keyboard switching to that field's
-    // alphabetic layout mid-digit-entry). Deferring the actual focus change into a
-    // LaunchedEffect one recomposition later — after the triggering keystroke has
-    // fully landed — avoids that race.
-    var advanceToMinutePending by remember { mutableStateOf(false) }
-    var finishPending by remember { mutableStateOf(false) }
-    val hourFocusRequester = remember { FocusRequester() }
-    val minuteFocusRequester = remember { FocusRequester() }
-    val focusManager = LocalFocusManager.current
-    val keyboardController = LocalSoftwareKeyboardController.current
-
-    fun pushValue() {
-        val minute = minuteField.text.toIntOrNull() ?: 0
-        val hour24 = (hour12 % 12) + if (isPm) 12 else 0
-        onValueChange(hour24 * 60 + minute)
-    }
-
-    // Same reasoning as the screen-level docs used to note for the old modal: the
-    // select-all has to happen a recomposition after focus actually lands, not
-    // synchronously inside onFocusChanged, or it loses a race with the IME on some
-    // devices and the next keystroke lands beside the old digits instead of
-    // replacing them.
-    LaunchedEffect(hourFocused) {
-        if (hourFocused) hourField = hourField.copy(selection = TextRange(0, hourField.text.length))
-    }
-    LaunchedEffect(minuteFocused) {
-        if (minuteFocused) minuteField = minuteField.copy(selection = TextRange(0, minuteField.text.length))
-    }
-    LaunchedEffect(advanceToMinutePending) {
-        if (advanceToMinutePending) {
-            focusManager.clearFocus()
-            minuteFocusRequester.requestFocus()
-            advanceToMinutePending = false
-        }
-    }
-    LaunchedEffect(finishPending) {
-        if (finishPending) {
-            focusManager.clearFocus()
-            onDone()
-            finishPending = false
-        }
-    }
-    // Tapping this box already means "edit this time" — requiring a second tap just
-    // to start typing would be a redundant extra step.
-    LaunchedEffect(Unit) {
-        hourFocusRequester.requestFocus()
-        keyboardController?.show()
-    }
-    // Neither field holding focus means the user tapped away without an explicit
-    // Done — exit inline mode the same as an explicit finish (the value is already
-    // live-synced, so there's nothing left to flush). Guarded by hasFocusedOnce so
-    // this doesn't fire on the first composition, before the LaunchedEffect above has
-    // actually claimed focus yet.
-    LaunchedEffect(hourFocused, minuteFocused) {
-        if (hourFocused || minuteFocused) {
-            hasFocusedOnce = true
-        } else if (hasFocusedOnce) {
-            onDone()
-        }
-    }
-
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
-        InlineTimeDigitField(
-            value = hourField,
-            focused = hourFocused,
-            focusRequester = hourFocusRequester,
-            onFocusChange = { hourFocused = it },
-            onValueChange = { new ->
-                val digits = new.text.filter { it.isDigit() }.take(2)
-                val parsed = digits.toIntOrNull()
-                if (digits.isEmpty() || (parsed != null && parsed in 0..12)) {
-                    hourField = new.copy(text = digits)
-                    if (parsed != null && parsed in 1..12) {
-                        hour12 = parsed
-                        pushValue()
-                    }
-                    val singleDigitUnambiguous = digits.length == 1 && (parsed ?: 0) >= 2
-                    if (digits.length == 2 || singleDigitUnambiguous) {
-                        advanceToMinutePending = true
-                    }
-                }
-            },
-            imeAction = ImeAction.Next,
-            onImeAction = { minuteFocusRequester.requestFocus() }
-        )
-        Text(":", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 2.dp))
-        InlineTimeDigitField(
-            value = minuteField,
-            focused = minuteFocused,
-            focusRequester = minuteFocusRequester,
-            onFocusChange = { minuteFocused = it },
-            onValueChange = { new ->
-                val digits = new.text.filter { it.isDigit() }.take(2)
-                val parsed = digits.toIntOrNull()
-                if (digits.isEmpty() || (parsed != null && parsed in 0..59)) {
-                    minuteField = new.copy(text = digits)
-                    if (parsed != null) pushValue()
-                    val singleDigitUnambiguous = digits.length == 1 && (parsed ?: 0) >= 6
-                    if (digits.length == 2 || singleDigitUnambiguous) {
-                        val finalMinute = (parsed ?: 0)
-                        minuteField = minuteField.copy(text = finalMinute.toString().padStart(2, '0'))
-                        finishPending = true
-                    }
-                }
-            },
-            imeAction = ImeAction.Done,
-            onImeAction = { finishPending = true }
-        )
-        Spacer(Modifier.width(6.dp))
-        InlineAmPmToggle(isPm = isPm, onChange = { isPm = it; pushValue() })
-    }
-}
-
-@Composable
-private fun InlineTimeDigitField(
-    value: TextFieldValue,
-    focused: Boolean,
-    onFocusChange: (Boolean) -> Unit,
-    onValueChange: (TextFieldValue) -> Unit,
-    imeAction: ImeAction,
-    onImeAction: () -> Unit,
-    focusRequester: FocusRequester
-) {
-    BasicTextField(
-        value = value,
-        onValueChange = onValueChange,
-        singleLine = true,
-        textStyle = MaterialTheme.typography.titleLarge.copy(
-            fontFamily = NumeralFontFamily,
-            color = MaterialTheme.colorScheme.onSurface,
-            textAlign = TextAlign.Center
-        ),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = imeAction),
-        keyboardActions = KeyboardActions(onNext = { onImeAction() }, onDone = { onImeAction() }),
-        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-        modifier = Modifier
-            .width(44.dp)
-            .focusRequester(focusRequester)
-            .onFocusChanged { onFocusChange(it.isFocused) }
-            .clip(RoundedCornerShape(10.dp))
-            .background(if (focused) MaterialTheme.colorScheme.primaryContainer else Color.Transparent),
-        decorationBox = { innerTextField ->
-            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { innerTextField() }
-        }
-    )
-}
-
-@Composable
-private fun InlineAmPmToggle(isPm: Boolean, onChange: (Boolean) -> Unit) {
-    Column {
-        listOf(false, true).forEach { pm ->
-            val selected = pm == isPm
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        color = if (isSelected) MaterialTheme.colorScheme.surface else Color.Transparent,
+        shadowElevation = if (isSelected) 2.dp else 0.dp,
+        modifier = modifier
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 10.dp)
+        ) {
             Text(
-                text = if (pm) stringResource(R.string.schedule_edit_time_dialog_pm) else stringResource(R.string.schedule_edit_time_dialog_am),
+                label,
                 style = MaterialTheme.typography.labelSmall,
-                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier
-                    .clickable { onChange(pm) }
-                    .padding(vertical = 1.dp)
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                formatMinuteOfDay(minuteOfDay),
+                fontFamily = NumeralFontFamily,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
             )
         }
     }

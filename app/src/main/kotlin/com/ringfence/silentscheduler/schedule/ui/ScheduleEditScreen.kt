@@ -19,6 +19,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -26,6 +28,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -75,6 +79,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -583,8 +588,12 @@ private fun InvalidRangeCard() {
     }
 }
 
-private val RollerItemHeight = 56.dp
-private const val ROLLER_VISIBLE_ROWS = 3
+// v2 "Lux" doc section 3 ("The rolling wheel picker"): exact geometry — the feel
+// depends on these numbers matching precisely, not just approximately.
+private val RollerItemHeight = 44.dp
+private const val ROLLER_VISIBLE_ROWS = 5
+private val RollerViewportHeight = RollerItemHeight * ROLLER_VISIBLE_ROWS // 220dp
+private val RollerEdgePadding = RollerItemHeight * 2 // 88dp top/bottom, so row 0 can centre
 
 /**
  * Rolling wheel time entry — hour, minute, AM/PM as three independently flingable
@@ -602,6 +611,7 @@ private const val ROLLER_VISIBLE_ROWS = 3
  * composable's remembered state — the three columns' scroll positions included —
  * only when that target actually changes.
  */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun TimeRoller(
     resetKey: Any,
@@ -652,14 +662,15 @@ private fun TimeRoller(
             }
         }
         Box(modifier = modifier.nestedScroll(claimLeftoverScroll)) {
-            // The band the centered row sits in — drawn once, behind all three
-            // columns, rather than per-column, so it reads as one shared picker
-            // rather than three separate ones that happen to be aligned.
+            // Doc section 3: selection band — left/right 14dp inset, the centre row's
+            // height, radius 12, accentSoft, drawn once behind all three columns
+            // (rather than per-column) so it reads as one shared picker.
             Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.secondaryContainer,
                 modifier = Modifier
                     .fillMaxWidth()
+                    .padding(horizontal = 14.dp)
                     .height(RollerItemHeight)
                     .align(Alignment.Center)
             ) {}
@@ -669,17 +680,27 @@ private fun TimeRoller(
                     selectedIndex = hour12 - 1,
                     labelFor = { (it + 1).toString() },
                     onSettled = { hour12 = it + 1; push() },
+                    horizontalAlignment = Alignment.End,
+                    contentPadding = PaddingValues(end = 12.dp),
                     modifier = Modifier.weight(1f)
                 )
-                Text(":", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(horizontal = 2.dp))
+                Text(
+                    ":",
+                    fontFamily = NumeralFontFamily,
+                    fontSize = 22.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.width(12.dp),
+                    textAlign = TextAlign.Center
+                )
                 RollerColumn(
                     itemCount = 60,
                     selectedIndex = minute,
                     labelFor = { it.toString().padStart(2, '0') },
                     onSettled = { minute = it; push() },
+                    horizontalAlignment = Alignment.Start,
+                    contentPadding = PaddingValues(start = 12.dp),
                     modifier = Modifier.weight(1f)
                 )
-                Spacer(Modifier.width(8.dp))
                 val amLabel = stringResource(R.string.schedule_edit_time_dialog_am)
                 val pmLabel = stringResource(R.string.schedule_edit_time_dialog_pm)
                 RollerColumn(
@@ -687,7 +708,8 @@ private fun TimeRoller(
                     selectedIndex = if (isPm) 1 else 0,
                     labelFor = { if (it == 0) amLabel else pmLabel },
                     onSettled = { isPm = it == 1; push() },
-                    modifier = Modifier.weight(0.8f)
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.width(76.dp)
                 )
             }
         }
@@ -695,22 +717,26 @@ private fun TimeRoller(
 }
 
 /**
- * One flingable, self-snapping column of [itemCount] rows. Deliberately doesn't lean
- * on Compose Foundation's built-in snap-fling APIs (their exact shape has shifted
- * across versions) — instead, once the user's fling naturally comes to rest, this
- * finds whichever row is nearest the visual center and animates the last small
- * distance to align it exactly, the same two-step "coast, then settle" feel a native
- * wheel picker has.
+ * One flingable, snap-to-row column of [itemCount] rows — doc section 3's exact
+ * geometry: 220dp viewport (5 visible 44dp rows), 88dp top/bottom content padding so
+ * row 0 can reach the centre band, `rememberSnapFlingBehavior` (the doc's own
+ * Android recommendation) rather than a hand-rolled settle correction. The selected
+ * row is full-opacity/weight-600; others sit at 50% opacity/weight-400, animated over
+ * ~180ms as the selection moves.
  */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun RollerColumn(
     itemCount: Int,
     selectedIndex: Int,
     labelFor: (Int) -> String,
     onSettled: (Int) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    horizontalAlignment: Alignment.Horizontal = Alignment.CenterHorizontally,
+    contentPadding: PaddingValues = PaddingValues(0.dp)
 ) {
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = selectedIndex)
+    val flingBehavior = androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior(listState)
 
     LaunchedEffect(listState) {
         snapshotFlow { listState.isScrollInProgress }.collect { scrolling ->
@@ -722,42 +748,73 @@ private fun RollerColumn(
                 kotlin.math.abs((it.offset + it.size / 2) - viewportCenter)
             } ?: return@collect
             val index = centered.index.coerceIn(0, itemCount - 1)
-            if (listState.firstVisibleItemIndex != index || listState.firstVisibleItemScrollOffset != 0) {
-                listState.animateScrollToItem(index)
-            }
             onSettled(index)
         }
     }
     // Keeps this column in sync if its value ever changes from outside a scroll of
-    // its own — e.g. the keypad being used while the roller is still visible.
+    // its own — e.g. the keypad being used while the roller is still visible, or the
+    // wheel opening already scrolled to the current value.
     LaunchedEffect(selectedIndex) {
         if (!listState.isScrollInProgress && listState.firstVisibleItemIndex != selectedIndex) {
             listState.scrollToItem(selectedIndex)
         }
     }
 
-    LazyColumn(
-        state = listState,
-        modifier = modifier.height(RollerItemHeight * ROLLER_VISIBLE_ROWS),
-        contentPadding = PaddingValues(vertical = RollerItemHeight * (ROLLER_VISIBLE_ROWS - 1) / 2)
-    ) {
-        items(itemCount) { index ->
-            val isSelected = index == selectedIndex
-            Box(
-                modifier = Modifier
-                    .fillParentMaxWidth()
-                    .height(RollerItemHeight),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    labelFor(index),
-                    style = if (isSelected) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleMedium,
-                    fontFamily = NumeralFontFamily,
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+    Box(modifier = modifier.height(RollerViewportHeight)) {
+        LazyColumn(
+            state = listState,
+            flingBehavior = flingBehavior,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                top = RollerEdgePadding,
+                bottom = RollerEdgePadding,
+                start = contentPadding.calculateStartPadding(LayoutDirection.Ltr),
+                end = contentPadding.calculateEndPadding(LayoutDirection.Ltr)
+            )
+        ) {
+            items(itemCount) { index ->
+                val isSelected = index == selectedIndex
+                val alpha by androidx.compose.animation.core.animateFloatAsState(
+                    targetValue = if (isSelected) 1f else 0.5f,
+                    animationSpec = androidx.compose.animation.core.tween(durationMillis = 180),
+                    label = "rollerRowAlpha"
                 )
+                Box(
+                    modifier = Modifier
+                        .fillParentMaxWidth()
+                        .height(RollerItemHeight),
+                    contentAlignment = when (horizontalAlignment) {
+                        Alignment.Start -> Alignment.CenterStart
+                        Alignment.End -> Alignment.CenterEnd
+                        else -> Alignment.Center
+                    }
+                ) {
+                    Text(
+                        labelFor(index),
+                        fontFamily = NumeralFontFamily,
+                        fontSize = 26.sp,
+                        letterSpacing = (-1).sp,
+                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.alpha(alpha)
+                    )
+                }
             }
         }
+        // Doc section 3: fade masks — non-interactive overlays fading the top/bottom
+        // rows toward the surface color so the wheel reads as receding, not clipped.
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        0f to MaterialTheme.colorScheme.surface,
+                        0.38f to Color.Transparent,
+                        0.62f to Color.Transparent,
+                        1f to MaterialTheme.colorScheme.surface
+                    )
+                )
+        )
     }
 }
 

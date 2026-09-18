@@ -29,6 +29,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ButtonDefaults
@@ -614,7 +619,20 @@ private fun TimeRoller(
             }
         }
 
-        Box(modifier = modifier) {
+        // A fast fling on a short column (AM/PM's 2 rows) or one that starts already
+        // at an end (hour's row 12, the last one) has nowhere left for that column's
+        // own LazyColumn to put the leftover motion — by default it bubbles up to
+        // this screen's outer scroll, dragging the whole page along with what was
+        // meant to be a roller swipe. Claiming that leftover here, rather than
+        // leaving it unconsumed, keeps every rough scroll on this roller contained
+        // to the roller itself.
+        val claimLeftoverScroll = remember {
+            object : NestedScrollConnection {
+                override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource) = available
+                override suspend fun onPostFling(consumed: Velocity, available: Velocity) = available
+            }
+        }
+        Box(modifier = modifier.nestedScroll(claimLeftoverScroll)) {
             // The band the centered row sits in — drawn once, behind all three
             // columns, rather than per-column, so it reads as one shared picker
             // rather than three separate ones that happen to be aligned.

@@ -681,7 +681,7 @@ private fun TimeRoller(
                     labelFor = { (it + 1).toString() },
                     onSettled = { hour12 = it + 1; push() },
                     horizontalAlignment = Alignment.End,
-                    contentPadding = PaddingValues(end = 12.dp),
+                    contentPadding = PaddingValues(end = 28.dp),
                     modifier = Modifier.weight(1f)
                 )
                 Text(
@@ -689,7 +689,7 @@ private fun TimeRoller(
                     fontFamily = NumeralFontFamily,
                     fontSize = 22.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.width(12.dp),
+                    modifier = Modifier.width(20.dp),
                     textAlign = TextAlign.Center
                 )
                 RollerColumn(
@@ -698,7 +698,7 @@ private fun TimeRoller(
                     labelFor = { it.toString().padStart(2, '0') },
                     onSettled = { minute = it; push() },
                     horizontalAlignment = Alignment.Start,
-                    contentPadding = PaddingValues(start = 12.dp),
+                    contentPadding = PaddingValues(start = 28.dp),
                     modifier = Modifier.weight(1f)
                 )
                 val amLabel = stringResource(R.string.schedule_edit_time_dialog_am)
@@ -876,9 +876,18 @@ private fun TimeBox(
     Surface(
         shape = RoundedCornerShape(CardRadius),
         color = Color.Transparent,
+        // The v2 Lux "divider" token (colorScheme.outline) is a near-invisible 8-9%
+        // overlay — right for a hairline row separator, but far too faint for a
+        // box outline that has to read clearly on its own, especially for the
+        // *inactive* box (isActive already gets a clearly visible accent border).
+        // Use onSurfaceVariant's own alpha instead so it stays visible in both themes.
         border = BorderStroke(
             if (isActive) 1.5.dp else 1.dp,
-            if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+            if (isActive) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
+            }
         ),
         modifier = modifier.clickable(onClick = onSelect)
     ) {

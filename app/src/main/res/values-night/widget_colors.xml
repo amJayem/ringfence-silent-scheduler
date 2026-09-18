@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Dark-theme counterpart of values/widget_colors.xml — see that file's comment. -->
 <resources>
-    <color name="widget_surface">#1A1A1F</color>
-    <color name="widget_silent_surface">#22222C</color>
-    <color name="widget_surface2">#25252C</color>
-    <color name="widget_text">#F1F0EE</color>
-    <color name="widget_dim">#94F1F0EE</color>
-    <color name="widget_faint">#57F1F0EE</color>
-    <color name="widget_accent">#8D96D4</color>
-    <color name="widget_accent_soft">#2B8D96D4</color>
+    <color name="widget_surface">#15151F</color>
+    <color name="widget_silent_surface">#20202C</color>
+    <color name="widget_surface2">#20202C</color>
+    <color name="widget_text">#F2F1F6</color>
+    <color name="widget_dim">#99F2F1F6</color>
+    <color name="widget_faint">#5CF2F1F6</color>
+    <color name="widget_accent">#9B99F0</color>
+    <color name="widget_accent_soft">#299B99F0</color>
 </resources>

@@ -176,14 +176,16 @@ private fun DurationChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // v2 "Lux" doc section 1 (Shape): "chips and all buttons fully rounded pills."
+    val shape = RoundedCornerShape(percent = 50)
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
+            .clip(shape)
             .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
             .border(
                 width = 1.dp,
                 color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                shape = RoundedCornerShape(16.dp)
+                shape = shape
             )
             .clickable(onClick = onClick)
             .padding(vertical = 10.dp, horizontal = 4.dp),

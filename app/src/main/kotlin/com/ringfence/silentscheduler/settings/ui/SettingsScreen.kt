@@ -45,6 +45,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -56,6 +57,8 @@ import com.ringfence.silentscheduler.core.ringer.RevertPolicy
 import com.ringfence.silentscheduler.core.ringer.SilenceStyle
 import com.ringfence.silentscheduler.core.theme.BackgroundDark
 import com.ringfence.silentscheduler.core.theme.BackgroundLight
+import com.ringfence.silentscheduler.core.theme.LocalOnSurfaceFaint
+import com.ringfence.silentscheduler.core.theme.NumeralFontFamily
 import com.ringfence.silentscheduler.core.theme.ThemeOverride
 import com.ringfence.silentscheduler.core.ui.RadioOptionRow
 import com.ringfence.silentscheduler.core.ui.SegmentedControl
@@ -276,10 +279,15 @@ private fun SettingsSection(
     content: @Composable ColumnScope.() -> Unit
 ) {
     Column(Modifier.fillMaxWidth()) {
+        // v2 "Lux" doc section 1 (Type): "Section label" — 10.5sp mono w500 uppercase,
+        // tracking +1.3, textFaint. Matches the Add/Edit screen's own SectionLabel so
+        // every section header in the app reads consistently.
         Text(
             text = title,
             style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            fontFamily = NumeralFontFamily,
+            letterSpacing = 1.3.sp,
+            color = LocalOnSurfaceFaint.current
         )
         Spacer(Modifier.height(8.dp))
         Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface) {

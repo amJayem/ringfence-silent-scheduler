@@ -1,11 +1,15 @@
 package com.ringfence.silentscheduler
 
+import android.Manifest
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -95,9 +99,19 @@ private fun RingfenceRoot() {
     val isDndAccessGranted by viewModel.isDndAccessGranted.collectAsState()
     val isExactAlarmGranted by viewModel.isExactAlarmGranted.collectAsState()
     val isTourCompleted by viewModel.isTourCompleted.collectAsState()
+    val isNotificationPermissionGranted by viewModel.isNotificationPermissionGranted.collectAsState()
+    val hasRequestedNotificationPermissionOnce by viewModel.hasRequestedNotificationPermissionOnce.collectAsState()
     var userDeclinedDnd by remember { mutableStateOf(false) }
     var userDeclinedExactAlarm by remember { mutableStateOf(false) }
     var tourStep by remember { mutableStateOf(TourStep.TEMPLATES) }
+    // Guards against a second launch() while waiting for hasRequestedNotificationPermissionOnce
+    // to come back from the DataStore write below — that flag only flips after the
+    // launcher's callback runs, and recomposition could otherwise fire this twice.
+    var hasFiredNotificationPromptThisSession by remember { mutableStateOf(false) }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { viewModel.markNotificationPermissionRequested() }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     val latestViewModel = rememberUpdatedState(viewModel)
@@ -112,6 +126,26 @@ private fun RingfenceRoot() {
     }
 
     val context = LocalContext.current
+
+    // Fires the system POST_NOTIFICATIONS prompt exactly once, as soon as the DND/
+    // exact-alarm decisions are out of the way — the app's default notification style
+    // is BANNER, but nothing was ever proactively requesting this Android 13+ runtime
+    // permission (it was only ever requested if the user happened to open Settings
+    // and re-tap an already-selected notification style radio button), so real
+    // schedule-start/end alerts silently never appeared for most users. Non-blocking:
+    // the tour proceeds either way, same as a declined exact-alarm request.
+    LaunchedEffect(isDndAccessGranted, isExactAlarmGranted, userDeclinedExactAlarm, isNotificationPermissionGranted, hasRequestedNotificationPermissionOnce) {
+        val permissionsSettled = isDndAccessGranted && (isExactAlarmGranted || userDeclinedExactAlarm)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            permissionsSettled &&
+            !isNotificationPermissionGranted &&
+            !hasRequestedNotificationPermissionOnce &&
+            !hasFiredNotificationPromptThisSession
+        ) {
+            hasFiredNotificationPromptThisSession = true
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
 
     when {
         userDeclinedDnd -> PlaceholderScreen(stringRes = R.string.dnd_access_declined_placeholder)

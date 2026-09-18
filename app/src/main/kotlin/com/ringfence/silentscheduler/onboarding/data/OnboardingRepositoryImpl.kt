@@ -22,7 +22,15 @@ class OnboardingRepositoryImpl @Inject constructor(
         dataStore.edit { it[TOUR_COMPLETED] = true }
     }
 
+    override fun observeHasRequestedNotificationPermission(): Flow<Boolean> =
+        dataStore.data.map { it[NOTIFICATION_PERMISSION_REQUESTED] ?: false }
+
+    override suspend fun markNotificationPermissionRequested() {
+        dataStore.edit { it[NOTIFICATION_PERMISSION_REQUESTED] = true }
+    }
+
     private companion object {
         val TOUR_COMPLETED = booleanPreferencesKey("onboarding_tour_completed")
+        val NOTIFICATION_PERMISSION_REQUESTED = booleanPreferencesKey("onboarding_notification_permission_requested")
     }
 }

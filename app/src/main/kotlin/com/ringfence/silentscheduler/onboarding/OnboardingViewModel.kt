@@ -4,6 +4,7 @@ import android.app.AlarmManager
 import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
+import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ringfence.silentscheduler.onboarding.domain.OnboardingRepository
@@ -48,6 +49,20 @@ class OnboardingViewModel @Inject constructor(
     val isTourCompleted: StateFlow<Boolean> = onboardingRepository.observeIsTourCompleted()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
+    // Below Android 13 (TIRAMISU), POST_NOTIFICATIONS doesn't exist as a runtime
+    // permission — notifications just work once the app-level toggle is on — so treat
+    // it as already "granted" pre-13 rather than gating the tour on a check that would
+    // never pass.
+    private val _isNotificationPermissionGranted = MutableStateFlow(
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            NotificationManagerCompat.from(context).areNotificationsEnabled()
+    )
+    val isNotificationPermissionGranted: StateFlow<Boolean> = _isNotificationPermissionGranted.asStateFlow()
+
+    val hasRequestedNotificationPermissionOnce: StateFlow<Boolean> =
+        onboardingRepository.observeHasRequestedNotificationPermission()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
     init {
         // "Tour completed" is a preference key that didn't exist before this feature —
         // it defaults to false for every install, including ones that already have
@@ -74,6 +89,15 @@ class OnboardingViewModel @Inject constructor(
         _isDndAccessGranted.value = notificationManager.isNotificationPolicyAccessGranted
         _isExactAlarmGranted.value =
             Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()
+        _isNotificationPermissionGranted.value =
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                NotificationManagerCompat.from(context).areNotificationsEnabled()
+    }
+
+    /** Records that the one-time system POST_NOTIFICATIONS prompt has now been shown. */
+    fun markNotificationPermissionRequested() {
+        viewModelScope.launch { onboardingRepository.markNotificationPermissionRequested() }
+        refreshPermissionState()
     }
 
     /** Saves a real, ready-to-use schedule for each template the user picked. */

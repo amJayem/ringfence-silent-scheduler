@@ -12,4 +12,13 @@ import kotlinx.coroutines.flow.Flow
 interface OnboardingRepository {
     fun observeIsTourCompleted(): Flow<Boolean>
     suspend fun markTourCompleted()
+
+    /**
+     * Whether the app has already fired the one-time POST_NOTIFICATIONS system prompt
+     * (Android 13+). Separate from whether the permission is currently granted — a
+     * user who denied it shouldn't be re-prompted with the system dialog on every
+     * launch; the Dashboard's own banner covers ongoing recovery instead.
+     */
+    fun observeHasRequestedNotificationPermission(): Flow<Boolean>
+    suspend fun markNotificationPermissionRequested()
 }

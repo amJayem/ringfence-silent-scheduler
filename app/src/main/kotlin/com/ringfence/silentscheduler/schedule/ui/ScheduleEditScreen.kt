@@ -480,12 +480,21 @@ private fun InvalidRangeCard() {
     }
 }
 
-// v2 "Lux" doc section 3 ("The rolling wheel picker"): exact geometry — the feel
-// depends on these numbers matching precisely, not just approximately.
+// User feedback on the v2 Lux doc's own 5-visible-row geometry: only one neighbour
+// above and below the selected row reads more like a real dial, so this app uses 3
+// visible rows (1 above, selected, 1 below) rather than the doc's 5 — everything
+// else about the wheel's feel (44dp rows, snap fling, fade masks) still matches.
 private val RollerItemHeight = 44.dp
-private const val ROLLER_VISIBLE_ROWS = 5
-private val RollerViewportHeight = RollerItemHeight * ROLLER_VISIBLE_ROWS // 220dp
-private val RollerEdgePadding = RollerItemHeight * 2 // 88dp top/bottom, so row 0 can centre
+private const val ROLLER_VISIBLE_ROWS = 3
+private val RollerViewportHeight = RollerItemHeight * ROLLER_VISIBLE_ROWS
+private val RollerEdgePadding = RollerItemHeight * ((ROLLER_VISIBLE_ROWS - 1) / 2) // so the selected row can centre
+
+// A circular column (hour, minute) is implemented as a very large but finite list of
+// [CIRCULAR_LOOP_COUNT] repeats of the real values, started in the middle repeat —
+// far enough from either end that no real user fling can ever reach an edge, so it
+// reads as an infinite dial: hour wraps 12 -> 1, minute wraps 59 -> 0, in both
+// directions.
+private const val CIRCULAR_LOOP_COUNT = 1001
 
 /**
  * Rolling wheel time entry — hour, minute, AM/PM as three independently flingable
@@ -572,6 +581,7 @@ private fun TimeRoller(
                     selectedIndex = hour12 - 1,
                     labelFor = { (it + 1).toString() },
                     onSettled = { hour12 = it + 1; push() },
+                    circular = true,
                     horizontalAlignment = Alignment.End,
                     contentPadding = PaddingValues(end = 28.dp),
                     modifier = Modifier.weight(1f)
@@ -589,6 +599,7 @@ private fun TimeRoller(
                     selectedIndex = minute,
                     labelFor = { it.toString().padStart(2, '0') },
                     onSettled = { minute = it; push() },
+                    circular = true,
                     horizontalAlignment = Alignment.Start,
                     contentPadding = PaddingValues(start = 28.dp),
                     modifier = Modifier.weight(1f)
@@ -624,11 +635,26 @@ private fun RollerColumn(
     labelFor: (Int) -> String,
     onSettled: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    circular: Boolean = false,
     horizontalAlignment: Alignment.Horizontal = Alignment.CenterHorizontally,
     contentPadding: PaddingValues = PaddingValues(0.dp)
 ) {
-    val listState = rememberLazyListState(initialFirstVisibleItemIndex = selectedIndex)
+    // A non-circular column (AM/PM) is just [itemCount] rows; a circular one (hour,
+    // minute) is [CIRCULAR_LOOP_COUNT] repeats of those same [itemCount] rows, so
+    // scrolling past the last real row keeps going into the next repeat instead of
+    // hitting an end.
+    val virtualItemCount = if (circular) itemCount * CIRCULAR_LOOP_COUNT else itemCount
+    val middleRepeatBase = if (circular) (CIRCULAR_LOOP_COUNT / 2) * itemCount else 0
+
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = middleRepeatBase + selectedIndex)
     val flingBehavior = androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior(listState)
+
+    /** The virtual index nearest [current] that maps (mod [itemCount]) to [target]. */
+    fun nearestVirtualIndex(current: Int, target: Int): Int {
+        val base = current - Math.floorMod(current, itemCount)
+        return listOf(base - itemCount + target, base + target, base + itemCount + target)
+            .minByOrNull { kotlin.math.abs(it - current) }!!
+    }
 
     LaunchedEffect(listState) {
         snapshotFlow { listState.isScrollInProgress }.collect { scrolling ->
@@ -639,7 +665,7 @@ private fun RollerColumn(
             val centered = layoutInfo.visibleItemsInfo.minByOrNull {
                 kotlin.math.abs((it.offset + it.size / 2) - viewportCenter)
             } ?: return@collect
-            val index = centered.index.coerceIn(0, itemCount - 1)
+            val index = Math.floorMod(centered.index, itemCount)
             onSettled(index)
         }
     }
@@ -647,8 +673,13 @@ private fun RollerColumn(
     // its own — e.g. the keypad being used while the roller is still visible, or the
     // wheel opening already scrolled to the current value.
     LaunchedEffect(selectedIndex) {
-        if (!listState.isScrollInProgress && listState.firstVisibleItemIndex != selectedIndex) {
-            listState.scrollToItem(selectedIndex)
+        if (!listState.isScrollInProgress && Math.floorMod(listState.firstVisibleItemIndex, itemCount) != selectedIndex) {
+            val target = if (circular) {
+                nearestVirtualIndex(listState.firstVisibleItemIndex, selectedIndex)
+            } else {
+                selectedIndex
+            }
+            listState.scrollToItem(target)
         }
     }
 
@@ -664,7 +695,8 @@ private fun RollerColumn(
                 end = contentPadding.calculateEndPadding(LayoutDirection.Ltr)
             )
         ) {
-            items(itemCount) { index ->
+            items(virtualItemCount) { virtualIndex ->
+                val index = Math.floorMod(virtualIndex, itemCount)
                 val isSelected = index == selectedIndex
                 val alpha by androidx.compose.animation.core.animateFloatAsState(
                     targetValue = if (isSelected) 1f else 0.5f,

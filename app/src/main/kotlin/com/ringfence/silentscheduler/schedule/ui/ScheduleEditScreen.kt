@@ -15,6 +15,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -44,10 +45,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -330,18 +333,19 @@ fun ScheduleEditScreen(
         ) {
             Column {
                 Spacer(Modifier.height(12.dp))
-                TimeSlotList(
-                    activeTarget = activeTarget,
-                    startMinuteOfDay = startMinuteOfDay,
-                    endMinuteOfDay = endMinuteOfDay,
-                    onPick = { minuteOfDay ->
-                        // Also closes that box's own inline editor (if it happened to
-                        // be open): picking a row is itself a complete, decisive
-                        // choice, and leaving the editor mounted afterward showed its
-                        // own stale hour/minute digits — a keypad editor's typed
-                        // fields only ever initialize once, from whatever the value
-                        // was when it was opened, so an external update like this one
-                        // never reached them while it stayed open.
+                // DRAFT: replaces the always-visible 15-minute TimeSlotList (still
+                // defined below, deliberately left in place rather than deleted,
+                // pending confirmation this is the preferred picker) with a rolling
+                // wheel — hour/minute/AM-PM, same idea as a Samsung alarm's own time
+                // picker. Tapping a box's time value still opens the keypad exactly
+                // as before; this only replaces the "browse and tap" alternative.
+                TimeRoller(
+                    resetKey = activeTarget,
+                    minuteOfDay = if (activeTarget == TimeTarget.START) startMinuteOfDay else endMinuteOfDay,
+                    onValueChange = { minuteOfDay ->
+                        // Same reasoning as the old list's onPick: also closes that
+                        // box's own inline editor, since its typed fields only ever
+                        // initialize once and wouldn't otherwise notice this update.
                         if (activeTarget == TimeTarget.START) {
                             startMinuteOfDay = minuteOfDay
                             editingStart = false
@@ -554,16 +558,186 @@ private fun InvalidRangeCard() {
     }
 }
 
+private val RollerItemHeight = 56.dp
+private const val ROLLER_VISIBLE_ROWS = 3
+
+/**
+ * Rolling wheel time entry — hour, minute, AM/PM as three independently flingable
+ * columns — the "browse and scroll" alternative to the keypad, replacing the flat
+ * 15-minute [TimeSlotList] below (kept, unused, until this is confirmed as the
+ * preferred picker rather than deleted outright).
+ *
+ * [resetKey] exists for the same reason [InlineTimeEditor]'s value has to be
+ * live-synced rather than committed once at the end: this composable's own
+ * hour/minute/AM-PM state must reinitialize from [minuteOfDay] when the *target*
+ * changes (switching from editing Start to End) but must NOT reinitialize on every
+ * scroll settle of its own — since each settle calls [onValueChange], which flows
+ * back down as a new [minuteOfDay], and naively keying on that would fight the very
+ * scroll position it just settled into. Wrapping everything in `key(resetKey)`
+ * (typically the active Start/End target) disposes and recreates all of this
+ * composable's remembered state — the three columns' scroll positions included —
+ * only when that target actually changes.
+ */
+@Composable
+private fun TimeRoller(
+    resetKey: Any,
+    minuteOfDay: Int,
+    onValueChange: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    key(resetKey) {
+        val initialHour24 = minuteOfDay / 60
+        var hour12 by remember { mutableIntStateOf(((initialHour24 + 11) % 12) + 1) }
+        var minute by remember { mutableIntStateOf(minuteOfDay % 60) }
+        var isPm by remember { mutableStateOf(initialHour24 >= 12) }
+        // Tracks the last value *this* roller itself produced, so an external change
+        // to minuteOfDay (the keypad being used on the same box while the roller is
+        // still visible) can be told apart from this roller's own scroll settles —
+        // without it, hour12/minute/isPm above would never learn about a keypad edit,
+        // since they only ever initialize once per resetKey.
+        var lastPushed by remember { mutableIntStateOf(minuteOfDay) }
+
+        fun push() {
+            val hour24 = (hour12 % 12) + if (isPm) 12 else 0
+            val value = hour24 * 60 + minute
+            lastPushed = value
+            onValueChange(value)
+        }
+
+        LaunchedEffect(minuteOfDay) {
+            if (minuteOfDay != lastPushed) {
+                val hour24 = minuteOfDay / 60
+                hour12 = ((hour24 + 11) % 12) + 1
+                minute = minuteOfDay % 60
+                isPm = hour24 >= 12
+                lastPushed = minuteOfDay
+            }
+        }
+
+        Box(modifier = modifier) {
+            // The band the centered row sits in — drawn once, behind all three
+            // columns, rather than per-column, so it reads as one shared picker
+            // rather than three separate ones that happen to be aligned.
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(RollerItemHeight)
+                    .align(Alignment.Center)
+            ) {}
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                RollerColumn(
+                    itemCount = 12,
+                    selectedIndex = hour12 - 1,
+                    labelFor = { (it + 1).toString() },
+                    onSettled = { hour12 = it + 1; push() },
+                    modifier = Modifier.weight(1f)
+                )
+                Text(":", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(horizontal = 2.dp))
+                RollerColumn(
+                    itemCount = 60,
+                    selectedIndex = minute,
+                    labelFor = { it.toString().padStart(2, '0') },
+                    onSettled = { minute = it; push() },
+                    modifier = Modifier.weight(1f)
+                )
+                Spacer(Modifier.width(8.dp))
+                val amLabel = stringResource(R.string.schedule_edit_time_dialog_am)
+                val pmLabel = stringResource(R.string.schedule_edit_time_dialog_pm)
+                RollerColumn(
+                    itemCount = 2,
+                    selectedIndex = if (isPm) 1 else 0,
+                    labelFor = { if (it == 0) amLabel else pmLabel },
+                    onSettled = { isPm = it == 1; push() },
+                    modifier = Modifier.weight(0.8f)
+                )
+            }
+        }
+    }
+}
+
+/**
+ * One flingable, self-snapping column of [itemCount] rows. Deliberately doesn't lean
+ * on Compose Foundation's built-in snap-fling APIs (their exact shape has shifted
+ * across versions) — instead, once the user's fling naturally comes to rest, this
+ * finds whichever row is nearest the visual center and animates the last small
+ * distance to align it exactly, the same two-step "coast, then settle" feel a native
+ * wheel picker has.
+ */
+@Composable
+private fun RollerColumn(
+    itemCount: Int,
+    selectedIndex: Int,
+    labelFor: (Int) -> String,
+    onSettled: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = selectedIndex)
+
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.isScrollInProgress }.collect { scrolling ->
+            if (scrolling) return@collect
+            val layoutInfo = listState.layoutInfo
+            if (layoutInfo.visibleItemsInfo.isEmpty()) return@collect
+            val viewportCenter = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2
+            val centered = layoutInfo.visibleItemsInfo.minByOrNull {
+                kotlin.math.abs((it.offset + it.size / 2) - viewportCenter)
+            } ?: return@collect
+            val index = centered.index.coerceIn(0, itemCount - 1)
+            if (listState.firstVisibleItemIndex != index || listState.firstVisibleItemScrollOffset != 0) {
+                listState.animateScrollToItem(index)
+            }
+            onSettled(index)
+        }
+    }
+    // Keeps this column in sync if its value ever changes from outside a scroll of
+    // its own — e.g. the keypad being used while the roller is still visible.
+    LaunchedEffect(selectedIndex) {
+        if (!listState.isScrollInProgress && listState.firstVisibleItemIndex != selectedIndex) {
+            listState.scrollToItem(selectedIndex)
+        }
+    }
+
+    LazyColumn(
+        state = listState,
+        modifier = modifier.height(RollerItemHeight * ROLLER_VISIBLE_ROWS),
+        contentPadding = PaddingValues(vertical = RollerItemHeight * (ROLLER_VISIBLE_ROWS - 1) / 2)
+    ) {
+        items(itemCount) { index ->
+            val isSelected = index == selectedIndex
+            Box(
+                modifier = Modifier
+                    .fillParentMaxWidth()
+                    .height(RollerItemHeight),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    labelFor(index),
+                    style = if (isSelected) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleMedium,
+                    fontFamily = NumeralFontFamily,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
 private const val MINUTES_PER_SLOT = 15
 private const val SLOTS_PER_DAY = 24 * 60 / MINUTES_PER_SLOT
 
 /**
+ * DRAFT: kept unused rather than deleted, pending confirmation that [TimeRoller]
+ * above is the preferred replacement — see its call site in [ScheduleEditScreen].
+ *
  * E-06/E-07: an always-visible scrolling list of every 15-minute slot across all 24
  * hours — free choice, not a preset shortlist — rather than a modal. Tapping a row
  * writes to whichever of Start/End is the current active target; only the row
  * matching *that* target's own current value is highlighted and hinted, matching
  * the source design (a row matching the *other* field's value isn't marked here).
  */
+@Suppress("unused")
 @Composable
 private fun TimeSlotList(
     activeTarget: TimeTarget,

@@ -201,6 +201,19 @@ fun ScheduleEditScreen(
         )
     }
 
+    // Tapping back while a field (a time box, the label) still holds focus otherwise
+    // left the keyboard's own dismiss animation tied to the screen's exit transition
+    // instead of starting right away, which read as a laggy, delayed close. Clearing
+    // focus and hiding the keyboard explicitly, before onCancel ever runs, lets that
+    // animation start immediately regardless of what the navigation transition does.
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    fun cancelAndDismissKeyboard() {
+        focusManager.clearFocus()
+        keyboardController?.hide()
+        onCancel()
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -212,7 +225,7 @@ fun ScheduleEditScreen(
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp, vertical = 16.dp)
         ) {
-            IconButton(onClick = onCancel) {
+            IconButton(onClick = ::cancelAndDismissKeyboard) {
                 Icon(painterResource(R.drawable.ic_arrow_back), contentDescription = null)
             }
             Text(

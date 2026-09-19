@@ -77,11 +77,18 @@ class QuickSilenceRepositoryImpl @Inject constructor(
             prefs[Keys.IS_ACTIVE] = false
         }
         val restoredMode = silencerCoordinator.onWindowEnd(policy)
-        // null means another window (a schedule) is still silencing — the phone isn't
-        // actually un-silenced yet, so no "sound is back" notification should fire.
+        // null means another window (a schedule, or a still-active shared counter) is
+        // still silencing — the phone isn't actually un-silenced yet, so no "sound is
+        // back" notification should fire. But this quick silence session itself is
+        // still over either way, so its own ongoing notification has to go regardless
+        // — otherwise it's left showing a live countdown for a session that no longer
+        // exists (matches ScheduleTriggerHandler.revertIfCurrentlySilencing's identical
+        // null-branch cleanup for the same shared-counter design).
         if (restoredMode != null) {
             val notificationStyle = settingsRepository.observeSettings().first().notificationStyle
             silenceNotifier.notifySilenceEnded(QUICK_SILENCE_LABEL, notificationStyle, restoredMode.toFriendlyRingerModeName())
+        } else {
+            silenceNotifier.cancelActiveNotification(QUICK_SILENCE_LABEL)
         }
         alarmScheduler.cancelRevert()
         widgetRefresher.refresh()

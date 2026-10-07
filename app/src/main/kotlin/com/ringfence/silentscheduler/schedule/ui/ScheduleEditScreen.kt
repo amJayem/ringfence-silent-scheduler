@@ -672,8 +672,20 @@ private fun RollerColumn(
             val centered = layoutInfo.visibleItemsInfo.minByOrNull {
                 kotlin.math.abs((it.offset + it.size / 2) - viewportCenter)
             } ?: return@collect
+            // Commit the value the instant the row nearest the band is known —
+            // waiting on the pixel-correction below first (an animation) was adding
+            // a visible lag between letting go and the Start/End tab actually
+            // updating, which read as "it didn't set" even though it always did.
             val index = Math.floorMod(centered.index, itemCount)
             onSettled(index)
+            // rememberSnapFlingBehavior's own snap point doesn't necessarily land
+            // exactly on our band's centre — close enough to coast-and-settle well,
+            // but a few px off is enough for the row that *looks* selected to drift
+            // from the value just committed above. Correct it now, after the value
+            // is already locked in, so this is purely cosmetic and never gates it.
+            if (listState.firstVisibleItemIndex != centered.index || listState.firstVisibleItemScrollOffset != 0) {
+                listState.animateScrollToItem(centered.index)
+            }
         }
     }
     // Keeps this column in sync if its value ever changes from outside a scroll of

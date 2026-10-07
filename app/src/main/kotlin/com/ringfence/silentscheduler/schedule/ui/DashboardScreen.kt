@@ -27,7 +27,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -175,7 +175,12 @@ fun DashboardScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .safeDrawingPadding()
+                // Only the top inset is this screen's own job — it's hosted inside
+                // MainAppShell's Scaffold, whose NavHost already gets bottom padding
+                // matching the NavigationBar's real height. Applying safeDrawingPadding
+                // here double-counted that bottom inset, leaving a dead gap between
+                // the last row/FAB and the nav bar.
+                .statusBarsPadding()
                 .padding(horizontal = 18.dp)
                 .nestedScroll(headerNestedScrollConnection)
         ) {

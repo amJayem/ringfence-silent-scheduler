@@ -20,7 +20,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -104,7 +104,11 @@ fun SettingsScreen(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .safeDrawingPadding()
+            // Only the top inset is this screen's own job — see DashboardScreen's
+            // identical fix: Scaffold's NavHost already supplies the right bottom
+            // padding to clear the NavigationBar, so safeDrawingPadding here was
+            // double-counting that inset and leaving a dead gap above the nav bar.
+            .statusBarsPadding()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp, vertical = 16.dp)
     ) {

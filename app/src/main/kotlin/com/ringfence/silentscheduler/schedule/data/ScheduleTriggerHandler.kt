@@ -148,6 +148,37 @@ class ScheduleTriggerHandler @Inject constructor(
         }
     }
 
+    /**
+     * Called once on app process start (see [com.ringfence.silentscheduler.RingfenceApp]),
+     * mirroring [com.ringfence.silentscheduler.quicksilence.domain.QuickSilenceRepository.reconcileIfExpired]'s
+     * identical fix for quick silence. A schedule's own end-of-window path (delivered by
+     * AlarmManager via [ScheduleTriggerReceiver]) can be lost entirely — Doze, a revoked
+     * exact-alarm permission, a reboot, a process death mid-transaction — leaving this
+     * schedule's own "active" flag stuck true forever. That has two real consequences,
+     * not just a stray notification: its "Silent — <Label>" notification is stuck
+     * on-screen showing a countdown for a window that's long over (the user-visible
+     * symptom — a schedule's banner surviving well past when that window should have
+     * ended), and the next time this schedule's window naturally starts, [handleStart]'s
+     * own idempotency check would wrongly treat it as "already active" and silently
+     * skip silencing altogether.
+     */
+    suspend fun reconcileStaleActiveFlags() {
+        val now = LocalDateTime.now()
+        repository.observeSchedules().first().forEach { schedule ->
+            val key = activeKey(schedule.id)
+            if (preferencesDataStore.data.first()[key] != true) return@forEach
+            val stillActive = schedule.isEnabled && schedule.repeatDays.isNotEmpty() &&
+                RecurringScheduleCalculator.nextOccurrence(schedule, now).let { occ ->
+                    !occ.start.isAfter(now) && occ.end.isAfter(now)
+                }
+            if (!stillActive) {
+                Log.i(TAG, "reconcileStaleActiveFlags ${schedule.id}: window already over, clearing stuck flag/notification")
+                preferencesDataStore.edit { prefs -> prefs.remove(key) }
+                silenceNotifier.cancelActiveNotification(schedule.label)
+            }
+        }
+    }
+
     private suspend fun scheduleLabel(scheduleId: String): String =
         repository.observeSchedules().first().find { it.id == scheduleId }?.label ?: "Schedule"
 

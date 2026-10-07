@@ -3,6 +3,7 @@ package com.ringfence.silentscheduler
 import android.app.Application
 import com.ringfence.silentscheduler.core.ringer.SilencerCoordinator
 import com.ringfence.silentscheduler.quicksilence.domain.QuickSilenceRepository
+import com.ringfence.silentscheduler.schedule.data.ScheduleTriggerHandler
 import com.ringfence.silentscheduler.schedule.domain.RecurringScheduleCalculator
 import com.ringfence.silentscheduler.schedule.domain.ScheduleRepository
 import com.ringfence.silentscheduler.widget.WidgetRefresher
@@ -28,6 +29,9 @@ class RingfenceApp : Application() {
     lateinit var silencerCoordinator: SilencerCoordinator
 
     @Inject
+    lateinit var scheduleTriggerHandler: ScheduleTriggerHandler
+
+    @Inject
     lateinit var widgetTickScheduler: WidgetTickScheduler
 
     @Inject
@@ -42,6 +46,11 @@ class RingfenceApp : Application() {
         // only once the Dashboard happens to be opened.
         CoroutineScope(Dispatchers.Default).launch {
             quickSilenceRepository.reconcileIfExpired()
+            // Same fix as the line above, but per-schedule: clears any schedule's own
+            // "active" flag (and its stuck notification) left behind by a lost end
+            // alarm — see the doc comment on reconcileStaleActiveFlags for why this
+            // matters beyond just the notification.
+            scheduleTriggerHandler.reconcileStaleActiveFlags()
             // SilencerCoordinator's shared active-window count only reaches zero (and
             // so only ever restores the ringer) when every window that incremented it
             // also decrements it — a process death mid-transaction, or any other path

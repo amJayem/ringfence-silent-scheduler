@@ -376,14 +376,26 @@ private fun HeroPanel(
     onTurnSoundOn: () -> Unit
 ) {
     val hero = LocalHeroPalette.current
-    // Shrunk from the doc's original 26/20/24 + 12/16 gap per user feedback: the hero
-    // panel was leaving too little of the viewport for the schedule list below it.
-    // These are dp tokens on the existing compact/regular split (itself driven by
-    // screenHeightDp, not a fixed pixel count), so the reduction scales correctly
-    // across every device's own density and screen height — not a fix tuned to one
-    // physical screen.
-    val cardPadding = if (compact) 12.dp else 16.dp
-    val gap = if (compact) 8.dp else 10.dp
+    // Compact-everywhere shrank the hero panel enough that the schedule list below it
+    // stayed mostly hidden — but that trade only makes sense while idle, when nothing
+    // is actually happening and the list is what the user came to see. The moment a
+    // window is silencing, the countdown IS the thing they came to check, so it earns
+    // back the doc's original, more dramatic sizing (26/20/24 padding, 16/12 gap,
+    // 188/147dp ring) for that state specifically. Both variants stay on the existing
+    // compact/regular split (screenHeightDp-driven, not a fixed pixel count), so the
+    // sizing scales correctly across every device either way.
+    val isActive = state.active != null
+    val cardPadding = when {
+        isActive -> 24.dp
+        compact -> 12.dp
+        else -> 16.dp
+    }
+    val gap = when {
+        isActive && compact -> 12.dp
+        isActive -> 16.dp
+        compact -> 8.dp
+        else -> 10.dp
+    }
 
     Surface(
         shape = RoundedCornerShape(30.dp),
@@ -575,11 +587,17 @@ private fun HeroRing(
     // Doc section 2: "progress = pure white" — the ring itself no longer switches
     // color between active/idle now that it lives on the gradient; only its fill
     // fraction (via [animatedFraction]) communicates state, same 900ms sweep as before.
-    // Shrunk from the doc's original 188/147dp (keeping the same ~78% compact ratio)
-    // per user feedback — the hero panel was leaving too little room for the schedule
-    // list below it. A dp size, so it scales the same way on every device.
+    // Idle uses the shrunk size (so the schedule list below gets more room); active
+    // uses the doc's original, more dramatic 188/147dp (keeping its ~78% compact
+    // ratio) since the countdown is genuinely the thing worth checking in that state.
+    // Both are dp sizes, so either scales the same way on every device.
     ProgressRing(
-        ringSize = if (compact) 108.dp else 132.dp,
+        ringSize = when {
+            active != null && compact -> 147.dp
+            active != null -> 188.dp
+            compact -> 108.dp
+            else -> 132.dp
+        },
         strokeWidth = 9.dp,
         progressFraction = animatedFraction,
         trackColor = hero.ringTrack,
@@ -595,22 +613,36 @@ private fun HeroRing(
         )
         Spacer(Modifier.height(4.dp))
         val countdownText = if (active != null) formatActiveCountdown(remainingSeconds.coerceAtLeast(0)) else idleCountdownText
-        Text(countdownText, style = countdownTextStyle(countdownText, compact), color = hero.onHero, maxLines = 1)
+        Text(
+            countdownText,
+            style = countdownTextStyle(countdownText, compact, isActive = active != null),
+            color = hero.onHero,
+            maxLines = 1
+        )
     }
 }
 
 /**
- * displayLarge is sized (42sp) for the doc's original 188dp ring; scaled down here to
- * match the smaller ring this screen actually draws (see [HeroRing]'s `ringSize`) so a
- * short countdown like "51:27" or "—" still sits inside the ring's stroke rather than
- * spilling past it — [ProgressRing] doesn't grow to fit its content, it's a fixed dp
- * size. The longer "Xh Ym" form (used past the first hour, active or idle) needs a
- * further step down, same reasoning.
+ * displayLarge is sized (42sp) for the doc's original 188dp ring — used as-is while
+ * active, since that ring is back to its full 188/147dp size (see [HeroRing]'s
+ * `ringSize`) and the countdown is the thing worth showing large in that state. While
+ * idle the ring is smaller, so a short countdown like "51:27" or "—" needs scaling
+ * down to still sit inside its stroke rather than spilling past it — [ProgressRing]
+ * doesn't grow to fit its content, it's a fixed dp size. The longer "Xh Ym" form (used
+ * past the first hour, either state) needs a further step down in both cases, same
+ * reasoning.
  */
 @Composable
-private fun countdownTextStyle(text: String, compact: Boolean): TextStyle {
+private fun countdownTextStyle(text: String, compact: Boolean, isActive: Boolean): TextStyle {
     val base = MaterialTheme.typography.displayLarge
     val isLongForm = text.contains('h')
+    if (isActive) {
+        return when {
+            isLongForm && compact -> base.copy(fontSize = 22.sp)
+            isLongForm -> base.copy(fontSize = 28.sp)
+            else -> base
+        }
+    }
     return when {
         isLongForm && compact -> base.copy(fontSize = 16.sp)
         isLongForm -> base.copy(fontSize = 20.sp)

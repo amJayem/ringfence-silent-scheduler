@@ -274,7 +274,7 @@ fun DashboardScreen(
                         onTurnSoundOn = { viewModel.turnSoundOnForActiveSchedule() }
                     )
 
-                    Spacer(Modifier.height(if (compact) 16.dp else 24.dp))
+                    Spacer(Modifier.height(if (compact) 12.dp else 16.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -376,7 +376,14 @@ private fun HeroPanel(
     onTurnSoundOn: () -> Unit
 ) {
     val hero = LocalHeroPalette.current
-    val gap = if (compact) 12.dp else 16.dp
+    // Shrunk from the doc's original 26/20/24 + 12/16 gap per user feedback: the hero
+    // panel was leaving too little of the viewport for the schedule list below it.
+    // These are dp tokens on the existing compact/regular split (itself driven by
+    // screenHeightDp, not a fixed pixel count), so the reduction scales correctly
+    // across every device's own density and screen height — not a fix tuned to one
+    // physical screen.
+    val cardPadding = if (compact) 12.dp else 16.dp
+    val gap = if (compact) 8.dp else 10.dp
 
     Surface(
         shape = RoundedCornerShape(30.dp),
@@ -422,7 +429,7 @@ private fun HeroPanel(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 26.dp, start = 20.dp, end = 20.dp, bottom = 24.dp),
+                    .padding(top = cardPadding, start = 20.dp, end = 20.dp, bottom = cardPadding),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 val active = state.active
@@ -568,9 +575,11 @@ private fun HeroRing(
     // Doc section 2: "progress = pure white" — the ring itself no longer switches
     // color between active/idle now that it lives on the gradient; only its fill
     // fraction (via [animatedFraction]) communicates state, same 900ms sweep as before.
-    // S-01: ~78% size when compact (188dp -> 147dp per the doc's own ratio).
+    // Shrunk from the doc's original 188/147dp (keeping the same ~78% compact ratio)
+    // per user feedback — the hero panel was leaving too little room for the schedule
+    // list below it. A dp size, so it scales the same way on every device.
     ProgressRing(
-        ringSize = if (compact) 147.dp else 188.dp,
+        ringSize = if (compact) 108.dp else 132.dp,
         strokeWidth = 9.dp,
         progressFraction = animatedFraction,
         trackColor = hero.ringTrack,
@@ -591,20 +600,22 @@ private fun HeroRing(
 }
 
 /**
- * displayLarge (42sp) is sized for a short countdown like "51:27" or "—" — the
- * longer "Xh Ym" form (used past the first hour, active or idle) is wide enough at
- * that size to spill past the ring's own stroke instead of staying inside it, since
- * [HeroRing] draws this text over a fixed-size ring rather than one that grows with
- * its content.
+ * displayLarge is sized (42sp) for the doc's original 188dp ring; scaled down here to
+ * match the smaller ring this screen actually draws (see [HeroRing]'s `ringSize`) so a
+ * short countdown like "51:27" or "—" still sits inside the ring's stroke rather than
+ * spilling past it — [ProgressRing] doesn't grow to fit its content, it's a fixed dp
+ * size. The longer "Xh Ym" form (used past the first hour, active or idle) needs a
+ * further step down, same reasoning.
  */
 @Composable
 private fun countdownTextStyle(text: String, compact: Boolean): TextStyle {
     val base = MaterialTheme.typography.displayLarge
     val isLongForm = text.contains('h')
     return when {
-        isLongForm && compact -> base.copy(fontSize = 22.sp)
-        isLongForm -> base.copy(fontSize = 28.sp)
-        else -> base
+        isLongForm && compact -> base.copy(fontSize = 16.sp)
+        isLongForm -> base.copy(fontSize = 20.sp)
+        compact -> base.copy(fontSize = 26.sp)
+        else -> base.copy(fontSize = 30.sp)
     }
 }
 

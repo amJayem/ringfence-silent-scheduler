@@ -51,6 +51,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -655,6 +656,16 @@ private fun RollerColumn(
 
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = middleRepeatBase + selectedIndex)
     val flingBehavior = androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior(listState)
+    // The settle-watcher below is a LaunchedEffect keyed only on `listState` — it's
+    // meant to run once for that list's whole lifetime, not relaunch on every
+    // recomposition. But that means a stale `onSettled` closure would stay captured
+    // forever once launched, even after the caller's own state backing it gets
+    // replaced — concretely, when an Edit screen's schedule data loads a moment
+    // after the first frame (initial null -> real Schedule), the value a user later
+    // scrolls to was being written into an orphaned pre-load copy of the state that
+    // nothing on screen reads from anymore, so the Start/End tab never moved.
+    // rememberUpdatedState keeps the effect calling whatever `onSettled` is current.
+    val currentOnSettled by rememberUpdatedState(onSettled)
 
     /** The virtual index nearest [current] that maps (mod [itemCount]) to [target]. */
     fun nearestVirtualIndex(current: Int, target: Int): Int {
@@ -677,7 +688,7 @@ private fun RollerColumn(
             // a visible lag between letting go and the Start/End tab actually
             // updating, which read as "it didn't set" even though it always did.
             val index = Math.floorMod(centered.index, itemCount)
-            onSettled(index)
+            currentOnSettled(index)
             // rememberSnapFlingBehavior's own snap point doesn't necessarily land
             // exactly on our band's centre — close enough to coast-and-settle well,
             // but a few px off is enough for the row that *looks* selected to drift

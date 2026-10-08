@@ -5,10 +5,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -74,28 +76,48 @@ fun MainAppShell() {
     Scaffold(
         bottomBar = {
             if (currentRoute in bottomNavRoutes) {
-                NavigationBar {
-                    PillNavItem(
-                        selected = currentRoute == Routes.DASHBOARD && !showSilentNowSheet,
-                        onClick = { navController.navigateToTab(Routes.DASHBOARD) },
-                        icon = painterResource(R.drawable.ic_schedule),
-                        label = stringResource(R.string.nav_schedules)
-                    )
-                    PillNavItem(
-                        selected = showSilentNowSheet,
-                        onClick = {
-                            navController.navigateToTab(Routes.DASHBOARD)
-                            showSilentNowSheet = true
-                        },
-                        icon = painterResource(R.drawable.ic_do_not_disturb),
-                        label = stringResource(R.string.nav_silent_now)
-                    )
-                    PillNavItem(
-                        selected = currentRoute == Routes.SETTINGS,
-                        onClick = { navController.navigateToTab(Routes.SETTINGS) },
-                        icon = painterResource(R.drawable.ic_tune),
-                        label = stringResource(R.string.nav_settings)
-                    )
+                // NavigationBar's own containerColor paints its FULL measured height,
+                // which (by design, for a normal edge-to-edge look) includes the
+                // reserved system-navigation-bar inset below it — so a color set there
+                // extends seamlessly behind the system's own back/home/recents icons
+                // too, leaving no visible line between "this is the app" and "this is
+                // the phone." Keeping NavigationBar itself transparent and instead
+                // coloring only an inner Row sized to its own content (not the inset)
+                // confines that color to just the app's tab row; the inset strip below
+                // it is left unpainted, so it shows the plain app background through
+                // instead — two visibly different shades, in both themes, using only
+                // the system's own WindowInsets (device-adaptive, not a fixed height).
+                Column {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+                    NavigationBar(containerColor = Color.Transparent) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                        ) {
+                            PillNavItem(
+                                selected = currentRoute == Routes.DASHBOARD && !showSilentNowSheet,
+                                onClick = { navController.navigateToTab(Routes.DASHBOARD) },
+                                icon = painterResource(R.drawable.ic_schedule),
+                                label = stringResource(R.string.nav_schedules)
+                            )
+                            PillNavItem(
+                                selected = showSilentNowSheet,
+                                onClick = {
+                                    navController.navigateToTab(Routes.DASHBOARD)
+                                    showSilentNowSheet = true
+                                },
+                                icon = painterResource(R.drawable.ic_do_not_disturb),
+                                label = stringResource(R.string.nav_silent_now)
+                            )
+                            PillNavItem(
+                                selected = currentRoute == Routes.SETTINGS,
+                                onClick = { navController.navigateToTab(Routes.SETTINGS) },
+                                icon = painterResource(R.drawable.ic_tune),
+                                label = stringResource(R.string.nav_settings)
+                            )
+                        }
+                    }
                 }
             }
         }

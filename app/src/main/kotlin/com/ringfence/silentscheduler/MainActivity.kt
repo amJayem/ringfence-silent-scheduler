@@ -62,10 +62,20 @@ class MainActivity : ComponentActivity() {
             // based on the system theme — it never reacts to the in-app Light/Dark/System
             // override above, so switching to Light while the system is Dark left status
             // bar icons white-on-white. Re-apply whenever the resolved theme changes.
+            //
+            // On a 3-button nav bar, Android/the OEM also draws its own opaque contrast
+            // scrim behind the bar's icons by default (isNavigationBarContrastEnforced) —
+            // that's what made the bar look like a flat black band bolted onto the
+            // bottom of the app instead of part of it. Turning that off (and keeping
+            // navigationBarColor transparent, enableEdgeToEdge's own default) lets the
+            // app's real background show through behind the system's nav icons.
             LaunchedEffect(useDarkTheme) {
                 WindowCompat.getInsetsController(window, window.decorView).apply {
                     isAppearanceLightStatusBars = !useDarkTheme
                     isAppearanceLightNavigationBars = !useDarkTheme
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    window.isNavigationBarContrastEnforced = false
                 }
             }
 

@@ -80,16 +80,23 @@ class ScheduleTriggerHandler @Inject constructor(
 
     suspend fun handleEnd(scheduleId: String, referenceTimeForRearm: LocalDateTime) {
         val key = activeKey(scheduleId)
+        val schedule = repository.observeSchedules().first().find { it.id == scheduleId }
         if (preferencesDataStore.data.first()[key] == true) {
+            // Fetched before touching the DataStore flag or the ringer, and the
+            // notification call below is made the very next suspend hop after the
+            // ringer revert — this got cut to the minimum after a real device showed
+            // the OS freezing/killing this broadcast-triggered process moments after
+            // the ringer was already reverted but before the old 3-hop-later
+            // notifySilenceEnded() call ran, leaving the "still silencing" notification
+            // stuck with a negative countdown for hours despite the phone being normal.
+            val notificationStyle = settingsRepository.observeSettings().first().notificationStyle
             preferencesDataStore.edit { prefs -> prefs.remove(key) }
-            val schedule = repository.observeSchedules().first().find { it.id == scheduleId }
             val restoredMode = silencerCoordinator.onWindowEnd(schedule?.revertPolicy ?: RevertPolicy.RESTORE)
             Log.i(TAG, "END $scheduleId: restoredMode=$restoredMode (null means another window is still active)")
             // Only this schedule's own end notification fires, and only if the phone
             // actually went un-silent — if another window is still silencing,
             // restoredMode is null and nothing should claim "sound is back".
             if (restoredMode != null) {
-                val notificationStyle = settingsRepository.observeSettings().first().notificationStyle
                 silenceNotifier.notifySilenceEnded(scheduleLabel(scheduleId), notificationStyle, restoredMode.toFriendlyRingerModeName())
             }
         } else {
@@ -106,7 +113,6 @@ class ScheduleTriggerHandler @Inject constructor(
         // for the manual early-end path, where that alarm hasn't fired yet.
         alarmScheduler.cancelOccurrence(scheduleId)
 
-        val schedule = repository.observeSchedules().first().find { it.id == scheduleId }
         if (schedule != null && schedule.isEnabled) {
             alarmScheduler.scheduleNextOccurrence(schedule, referenceTimeForRearm)
         } else {

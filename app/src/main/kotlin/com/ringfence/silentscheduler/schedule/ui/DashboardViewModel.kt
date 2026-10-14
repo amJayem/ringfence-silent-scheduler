@@ -5,6 +5,7 @@ import android.media.AudioManager
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ringfence.silentscheduler.R
 import com.ringfence.silentscheduler.core.notification.NotificationStyle
 import com.ringfence.silentscheduler.core.ringer.RevertPolicy
 import com.ringfence.silentscheduler.core.ringer.SilenceStyle
@@ -205,9 +206,14 @@ class DashboardViewModel @Inject constructor(
             quickSilence.isActive && quickSilence.endTimeMillis > nowMillis -> {
                 val endTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(quickSilence.endTimeMillis), ZoneId.systemDefault())
                 val endMinuteOfDay = endTime.hour * 60 + endTime.minute
+                val quickSilenceLabel = context.getString(R.string.quick_silence_label)
                 ActiveCardState(
-                    label = "Quick silence",
-                    untilText = "Quick silence · until ${formatMinuteOfDay(endMinuteOfDay)}",
+                    label = quickSilenceLabel,
+                    untilText = context.getString(
+                        R.string.dashboard_active_until_format,
+                        quickSilenceLabel,
+                        formatMinuteOfDay(endMinuteOfDay)
+                    ),
                     startEpochMillis = quickSilence.startTimeMillis,
                     endEpochMillis = quickSilence.endTimeMillis,
                     source = ActiveSource.FromQuickSilence,
@@ -221,7 +227,11 @@ class DashboardViewModel @Inject constructor(
                 val zone = ZoneId.systemDefault()
                 ActiveCardState(
                     label = activeSchedule.label,
-                    untilText = "${activeSchedule.label} · until ${formatMinuteOfDay(endMinuteOfDay)}",
+                    untilText = context.getString(
+                        R.string.dashboard_active_until_format,
+                        activeSchedule.label,
+                        formatMinuteOfDay(endMinuteOfDay)
+                    ),
                     startEpochMillis = occ.start.atZone(zone).toInstant().toEpochMilli(),
                     endEpochMillis = occ.end.atZone(zone).toInstant().toEpochMilli(),
                     source = ActiveSource.FromSchedule(activeSchedule.id, occ.end),

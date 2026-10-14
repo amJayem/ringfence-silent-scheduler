@@ -1,11 +1,13 @@
 package com.ringfence.silentscheduler.quicksilence.data
 
+import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.ringfence.silentscheduler.R
 import com.ringfence.silentscheduler.core.data.toEnumOrDefault
 import com.ringfence.silentscheduler.core.notification.SilenceEndAction
 import com.ringfence.silentscheduler.core.notification.SilenceNotifier
@@ -16,13 +18,12 @@ import com.ringfence.silentscheduler.quicksilence.domain.QuickSilenceRepository
 import com.ringfence.silentscheduler.quicksilence.domain.QuickSilenceState
 import com.ringfence.silentscheduler.settings.domain.SettingsRepository
 import com.ringfence.silentscheduler.widget.WidgetRefresher
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
-
-private const val QUICK_SILENCE_LABEL = "Quick silence"
 
 private object Keys {
     val IS_ACTIVE = booleanPreferencesKey("quick_silence_is_active")
@@ -38,8 +39,12 @@ class QuickSilenceRepositoryImpl @Inject constructor(
     private val alarmScheduler: SilenceAlarmScheduler,
     private val settingsRepository: SettingsRepository,
     private val silenceNotifier: SilenceNotifier,
-    private val widgetRefresher: WidgetRefresher
+    private val widgetRefresher: WidgetRefresher,
+    @ApplicationContext private val context: Context
 ) : QuickSilenceRepository {
+
+    private val quickSilenceLabel: String
+        get() = context.getString(R.string.quick_silence_label)
 
     override fun observeState(): Flow<QuickSilenceState> = dataStore.data.map { prefs ->
         QuickSilenceState(
@@ -66,7 +71,7 @@ class QuickSilenceRepositoryImpl @Inject constructor(
         // reachable). Not wrapped defensively here — CLAUDE.md's revoked-permission
         // banner belongs on the Dashboard (step 7), not swallowed silently here.
         silencerCoordinator.onWindowStart(settings.silenceStyle)
-        silenceNotifier.notifySilenceStarted(QUICK_SILENCE_LABEL, settings.notificationStyle, endTime, SilenceEndAction.QuickSilence)
+        silenceNotifier.notifySilenceStarted(quickSilenceLabel, settings.notificationStyle, endTime, SilenceEndAction.QuickSilence)
         alarmScheduler.scheduleRevert(endTime)
         widgetRefresher.refresh()
     }
@@ -86,9 +91,9 @@ class QuickSilenceRepositoryImpl @Inject constructor(
         // null-branch cleanup for the same shared-counter design).
         if (restoredMode != null) {
             val notificationStyle = settingsRepository.observeSettings().first().notificationStyle
-            silenceNotifier.notifySilenceEnded(QUICK_SILENCE_LABEL, notificationStyle, restoredMode.toFriendlyRingerModeName())
+            silenceNotifier.notifySilenceEnded(quickSilenceLabel, notificationStyle, restoredMode.toFriendlyRingerModeName())
         } else {
-            silenceNotifier.cancelActiveNotification(QUICK_SILENCE_LABEL)
+            silenceNotifier.cancelActiveNotification(quickSilenceLabel)
         }
         alarmScheduler.cancelRevert()
         widgetRefresher.refresh()

@@ -42,6 +42,8 @@
 
     <string name="dnd_access_declined_placeholder">DND access not granted.\nOpen Settings from here to allow it later.</string>
 
+    <string name="quick_silence_label">Quick silence</string>
+    <string name="dashboard_active_until_format">%1$s · until %2$s</string>
     <string name="quick_silence_sheet_title">Silent now</string>
     <string name="quick_silence_sheet_body">Sound comes back automatically. This does not touch your recurring schedules.</string>
     <string name="quick_silence_until_short">til %1$s</string>

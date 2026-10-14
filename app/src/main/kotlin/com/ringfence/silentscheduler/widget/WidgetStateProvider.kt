@@ -73,11 +73,7 @@ class WidgetStateProvider @Inject constructor(
                 // or its own default-duration fallback).
                 val elapsedMinutes = ((quickSilence.endTimeMillis - quickSilence.startTimeMillis) / 60_000L).toInt()
                 silentState(
-                    // Matches the literal label used everywhere else a quick session
-                    // is named (QuickSilenceRepositoryImpl, DashboardViewModel) — not
-                    // a string resource there either, so kept consistent rather than
-                    // mixed.
-                    label = "Quick silence",
+                    label = context.getString(R.string.quick_silence_label),
                     endEpochMillis = quickSilence.endTimeMillis,
                     zone = zone,
                     chips = chips,

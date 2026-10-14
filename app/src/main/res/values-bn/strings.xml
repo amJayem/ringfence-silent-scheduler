@@ -32,8 +32,8 @@
     <string name="onboarding_templates_skip">স্কিপ</string>
 
     <string name="onboarding_quick_silence_headline">এখনই ফোন সাইলেন্ট করা দরকার?</string>
-    <string name="onboarding_quick_silence_body">কোনো শিডিউল ছাড়াই, যতক্ষণ দরকার ততক্ষণের জন্য Quick Silence সাথে সাথে আপনার ফোন সাইলেন্ট করে দেয়। এখন একটা ছোট সেশন চালিয়ে দেখুন।</string>
-    <string name="onboarding_quick_silence_try_cta">১ মিনিটের জন্য Quick Silence চালু করুন</string>
+    <string name="onboarding_quick_silence_body">কোনো শিডিউল ছাড়াই, যতক্ষণ দরকার ততক্ষণের জন্য দ্রুত সাইলেন্স সাথে সাথে আপনার ফোন সাইলেন্ট করে দেয়। এখন একটা ছোট সেশন চালিয়ে দেখুন।</string>
+    <string name="onboarding_quick_silence_try_cta">১ মিনিটের জন্য দ্রুত সাইলেন্স চালু করুন</string>
     <string name="onboarding_quick_silence_finish">শেষ</string>
 
     <string name="exact_alarm_headline">ঠিক সময়ে সাইলেন্স করতে আরেকটি অনুমতি প্রয়োজন।</string>
@@ -42,6 +42,8 @@
 
     <string name="dnd_access_declined_placeholder">DND অ্যাক্সেস দেওয়া হয়নি।\nপরে অনুমতি দিতে এখান থেকে সেটিংস খুলুন।</string>
 
+    <string name="quick_silence_label">দ্রুত সাইলেন্স</string>
+    <string name="dashboard_active_until_format">%1$s · %2$s পর্যন্ত</string>
     <string name="quick_silence_sheet_title">এখন সাইলেন্ট</string>
     <string name="quick_silence_sheet_body">সাউন্ড নিজেই ফিরে আসবে। এটি আপনার নিয়মিত শিডিউলে কোনো পরিবর্তন করে না।</string>
     <string name="quick_silence_until_short">%1$s পর্যন্ত</string>
@@ -86,8 +88,8 @@
     <string name="schedule_edit_add_title">উইন্ডো যুক্ত করুন</string>
     <string name="schedule_edit_edit_title">উইন্ডো সম্পাদনা করুন</string>
     <string name="schedule_edit_cancel">বাতিল</string>
-    <string name="schedule_edit_save_new">শিডিউল সংরক্ষণ করুন</string>
-    <string name="schedule_edit_save_edit">পরিবর্তন সংরক্ষণ করুন</string>
+    <string name="schedule_edit_save_new">সংরক্ষণ করুন</string>
+    <string name="schedule_edit_save_edit">সংরক্ষণ করুন</string>
     <string name="schedule_edit_invalid_title">শুরু ও শেষের সময় একই</string>
     <string name="schedule_edit_invalid_body">একটি উইন্ডোর জন্য কমপক্ষে ৫ মিনিট প্রয়োজন। পুরো ২৪ ঘণ্টার জন্য দুটি শিডিউল ব্যবহার করুন।</string>
     <string name="schedule_edit_label_section">লেবেল</string>

@@ -1,5 +1,6 @@
 package com.ringfence.silentscheduler.settings.domain
 
+import com.ringfence.silentscheduler.core.locale.AppLanguage
 import com.ringfence.silentscheduler.core.notification.NotificationStyle
 import com.ringfence.silentscheduler.core.ringer.RevertPolicy
 import com.ringfence.silentscheduler.core.ringer.SilenceStyle
@@ -13,4 +14,5 @@ interface SettingsRepository {
     suspend fun setRevertPolicy(policy: RevertPolicy)
     suspend fun setNotificationStyle(style: NotificationStyle)
     suspend fun setThemeOverride(override: ThemeOverride)
+    suspend fun setLanguageOverride(language: AppLanguage)
 }

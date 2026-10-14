@@ -29,8 +29,16 @@ class OnboardingRepositoryImpl @Inject constructor(
         dataStore.edit { it[NOTIFICATION_PERMISSION_REQUESTED] = true }
     }
 
+    override fun observeHasChosenLanguage(): Flow<Boolean> =
+        dataStore.data.map { it[LANGUAGE_CHOSEN] ?: false }
+
+    override suspend fun markLanguageChosen() {
+        dataStore.edit { it[LANGUAGE_CHOSEN] = true }
+    }
+
     private companion object {
         val TOUR_COMPLETED = booleanPreferencesKey("onboarding_tour_completed")
         val NOTIFICATION_PERMISSION_REQUESTED = booleanPreferencesKey("onboarding_notification_permission_requested")
+        val LANGUAGE_CHOSEN = booleanPreferencesKey("onboarding_language_chosen")
     }
 }

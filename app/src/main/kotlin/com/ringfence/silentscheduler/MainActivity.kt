@@ -5,11 +5,11 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -38,10 +38,12 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.ringfence.silentscheduler.core.locale.applyAppLocale
 import com.ringfence.silentscheduler.core.navigation.MainAppShell
 import com.ringfence.silentscheduler.core.theme.RingfenceTheme
 import com.ringfence.silentscheduler.onboarding.DndAccessScreen
 import com.ringfence.silentscheduler.onboarding.ExactAlarmAccessScreen
+import com.ringfence.silentscheduler.onboarding.LanguageSelectionScreen
 import com.ringfence.silentscheduler.onboarding.OnboardingViewModel
 import com.ringfence.silentscheduler.onboarding.QuickSilenceTourScreen
 import com.ringfence.silentscheduler.onboarding.WindowTemplatesScreen
@@ -49,7 +51,12 @@ import com.ringfence.silentscheduler.settings.ui.SettingsViewModel
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
-class MainActivity : ComponentActivity() {
+// AppCompatActivity, not ComponentActivity: AppCompatDelegate's per-app language
+// switch (applyAppLocale) only auto-recreates and re-applies the chosen locale
+// through an AppCompatActivity's own delegate hook — confirmed on-device that a
+// plain ComponentActivity silently no-ops setApplicationLocales() even on API 34.
+// Otherwise unchanged: still pure Compose, setContent works the same either way.
+class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -79,6 +86,14 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
+            // Applying the same locale AppCompatDelegate already has in effect is a
+            // no-op, so this fires harmlessly on every launch — it only actually
+            // recreates the activity when the user just picked a different language
+            // (onboarding's live preview, or a change from Settings).
+            LaunchedEffect(settings.languageOverride) {
+                applyAppLocale(settings.languageOverride)
+            }
+
             RingfenceTheme(useDarkTheme = useDarkTheme) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
@@ -106,6 +121,8 @@ private enum class TourStep { TEMPLATES, QUICK_SILENCE }
 @Composable
 private fun RingfenceRoot() {
     val viewModel: OnboardingViewModel = hiltViewModel()
+    val isLanguageChosen by viewModel.isLanguageChosen.collectAsState()
+    val selectedLanguage by viewModel.selectedLanguage.collectAsState()
     val isDndAccessGranted by viewModel.isDndAccessGranted.collectAsState()
     val isExactAlarmGranted by viewModel.isExactAlarmGranted.collectAsState()
     val isTourCompleted by viewModel.isTourCompleted.collectAsState()
@@ -158,6 +175,11 @@ private fun RingfenceRoot() {
     }
 
     when {
+        !isLanguageChosen -> LanguageSelectionScreen(
+            selected = selectedLanguage,
+            onSelect = viewModel::selectLanguage,
+            onContinue = viewModel::confirmLanguage
+        )
         userDeclinedDnd -> PlaceholderScreen(stringRes = R.string.dnd_access_declined_placeholder)
         !isDndAccessGranted -> DndAccessScreen(
             onAllowClick = {

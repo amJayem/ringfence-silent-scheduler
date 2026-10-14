@@ -7,9 +7,11 @@ import android.os.Build
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ringfence.silentscheduler.core.locale.AppLanguage
 import com.ringfence.silentscheduler.onboarding.domain.OnboardingRepository
 import com.ringfence.silentscheduler.quicksilence.domain.QuickSilenceRepository
 import com.ringfence.silentscheduler.schedule.domain.ScheduleRepository
+import com.ringfence.silentscheduler.settings.domain.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,6 +19,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -29,7 +32,8 @@ class OnboardingViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val onboardingRepository: OnboardingRepository,
     private val scheduleRepository: ScheduleRepository,
-    private val quickSilenceRepository: QuickSilenceRepository
+    private val quickSilenceRepository: QuickSilenceRepository,
+    private val settingsRepository: SettingsRepository
 ) : ViewModel() {
 
     private val notificationManager =
@@ -48,6 +52,13 @@ class OnboardingViewModel @Inject constructor(
 
     val isTourCompleted: StateFlow<Boolean> = onboardingRepository.observeIsTourCompleted()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    val isLanguageChosen: StateFlow<Boolean> = onboardingRepository.observeHasChosenLanguage()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    val selectedLanguage: StateFlow<AppLanguage> = settingsRepository.observeSettings()
+        .map { it.languageOverride }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppLanguage.ENGLISH)
 
     // Below Android 13 (TIRAMISU), POST_NOTIFICATIONS doesn't exist as a runtime
     // permission — notifications just work once the app-level toggle is on — so treat
@@ -114,5 +125,14 @@ class OnboardingViewModel @Inject constructor(
 
     fun completeTour() {
         viewModelScope.launch { onboardingRepository.markTourCompleted() }
+    }
+
+    /** Selecting a language previews it immediately; it only needs confirming via [confirmLanguage]. */
+    fun selectLanguage(language: AppLanguage) {
+        viewModelScope.launch { settingsRepository.setLanguageOverride(language) }
+    }
+
+    fun confirmLanguage() {
+        viewModelScope.launch { onboardingRepository.markLanguageChosen() }
     }
 }

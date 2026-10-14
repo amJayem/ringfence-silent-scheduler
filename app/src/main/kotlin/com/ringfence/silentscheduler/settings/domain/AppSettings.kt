@@ -1,5 +1,6 @@
 package com.ringfence.silentscheduler.settings.domain
 
+import com.ringfence.silentscheduler.core.locale.AppLanguage
 import com.ringfence.silentscheduler.core.notification.NotificationStyle
 import com.ringfence.silentscheduler.core.ringer.RevertPolicy
 import com.ringfence.silentscheduler.core.ringer.SilenceStyle
@@ -14,5 +15,6 @@ data class AppSettings(
     val silenceStyle: SilenceStyle = SilenceStyle.FULL_SILENT,
     val revertPolicy: RevertPolicy = RevertPolicy.RESTORE,
     val notificationStyle: NotificationStyle = NotificationStyle.BANNER,
-    val themeOverride: ThemeOverride = ThemeOverride.SYSTEM
+    val themeOverride: ThemeOverride = ThemeOverride.SYSTEM,
+    val languageOverride: AppLanguage = AppLanguage.ENGLISH
 )

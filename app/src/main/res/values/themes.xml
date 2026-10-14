@@ -1,3 +1,7 @@
 <resources>
-    <style name="Theme.Ringfence" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- AppCompat.DayNight, not the plain platform theme: MainActivity now extends
+    AppCompatActivity (needed for per-app language switching, see MainActivity.kt),
+    which requires a Theme.AppCompat descendant or it throws at runtime. Compose
+    draws all real UI itself regardless, so this only governs window chrome. -->
+    <style name="Theme.Ringfence" parent="Theme.AppCompat.DayNight.NoActionBar" />
 </resources>

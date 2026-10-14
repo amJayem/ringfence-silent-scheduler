@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.ringfence.silentscheduler.core.data.toEnumOrDefault
+import com.ringfence.silentscheduler.core.locale.AppLanguage
 import com.ringfence.silentscheduler.core.notification.NotificationStyle
 import com.ringfence.silentscheduler.core.ringer.RevertPolicy
 import com.ringfence.silentscheduler.core.ringer.SilenceStyle
@@ -24,6 +25,7 @@ private object Keys {
     val REVERT_POLICY = stringPreferencesKey("settings_revert_policy")
     val NOTIFICATION_STYLE = stringPreferencesKey("settings_notification_style")
     val THEME_OVERRIDE = stringPreferencesKey("settings_theme_override")
+    val LANGUAGE_OVERRIDE = stringPreferencesKey("settings_language_override")
 }
 
 @Singleton
@@ -37,7 +39,8 @@ class SettingsRepositoryImpl @Inject constructor(
             silenceStyle = prefs[Keys.SILENCE_STYLE].toEnumOrDefault(SilenceStyle.FULL_SILENT),
             revertPolicy = prefs[Keys.REVERT_POLICY].toEnumOrDefault(RevertPolicy.RESTORE),
             notificationStyle = prefs[Keys.NOTIFICATION_STYLE].toEnumOrDefault(NotificationStyle.BANNER),
-            themeOverride = prefs[Keys.THEME_OVERRIDE].toEnumOrDefault(ThemeOverride.SYSTEM)
+            themeOverride = prefs[Keys.THEME_OVERRIDE].toEnumOrDefault(ThemeOverride.SYSTEM),
+            languageOverride = prefs[Keys.LANGUAGE_OVERRIDE].toEnumOrDefault(AppLanguage.ENGLISH)
         )
     }
 
@@ -59,5 +62,9 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setThemeOverride(override: ThemeOverride) {
         dataStore.edit { it[Keys.THEME_OVERRIDE] = override.name }
+    }
+
+    override suspend fun setLanguageOverride(language: AppLanguage) {
+        dataStore.edit { it[Keys.LANGUAGE_OVERRIDE] = language.name }
     }
 }

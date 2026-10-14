@@ -1,6 +1,14 @@
 <resources>
     <string name="app_name">Ringfence</string>
 
+    <string name="onboarding_language_headline">Choose your language</string>
+    <string name="onboarding_language_body">You can change this any time from Settings.</string>
+    <string name="onboarding_language_continue_cta">Continue</string>
+    <string name="language_option_english_title">English</string>
+    <string name="language_option_english_subtitle">English</string>
+    <string name="language_option_bengali_title">বাংলা</string>
+    <string name="language_option_bengali_subtitle">Bengali</string>
+
     <string name="onboarding_headline">Your phone remembers to un-mute.</string>
     <string name="onboarding_body">Ringfence mutes your phone at the start of a window and turns sound back on the moment it ends. Nothing is left silent by accident.</string>
     <string name="onboarding_bullet_dnd_title">Do Not Disturb access</string>
@@ -127,6 +135,7 @@
     <string name="settings_notification_silent_log_subtitle">No alert, visible in history only</string>
     <string name="settings_notification_none_title">None</string>
     <string name="settings_notification_none_subtitle">Never notify</string>
+    <string name="settings_section_language">LANGUAGE</string>
     <string name="settings_section_appearance">APPEARANCE</string>
     <string name="settings_appearance_light">Light</string>
     <string name="settings_appearance_dark">Dark</string>

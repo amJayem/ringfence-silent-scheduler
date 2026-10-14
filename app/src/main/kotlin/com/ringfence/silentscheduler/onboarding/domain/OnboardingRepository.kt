@@ -21,4 +21,8 @@ interface OnboardingRepository {
      */
     fun observeHasRequestedNotificationPermission(): Flow<Boolean>
     suspend fun markNotificationPermissionRequested()
+
+    /** Whether the user has been through the one-time language picker (shown before DND access). */
+    fun observeHasChosenLanguage(): Flow<Boolean>
+    suspend fun markLanguageChosen()
 }

@@ -10,8 +10,21 @@
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
+        android:localeConfig="@xml/locales_config"
         android:supportsRtl="true"
         android:theme="@style/Theme.Ringfence">
+
+        <!-- Lets AppCompatDelegate.setApplicationLocales() persist the chosen
+             per-app language across process restarts on API < 33, where there's
+             no framework LocaleManager to back it. Never started directly. -->
+        <service
+            android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
+            android:enabled="false"
+            android:exported="false">
+            <meta-data
+                android:name="autoStoreLocales"
+                android:value="true" />
+        </service>
 
         <receiver
             android:name=".quicksilence.data.SilenceRevertReceiver"

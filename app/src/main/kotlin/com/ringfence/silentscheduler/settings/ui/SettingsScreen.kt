@@ -52,6 +52,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.ringfence.silentscheduler.R
+import com.ringfence.silentscheduler.core.locale.AppLanguage
 import com.ringfence.silentscheduler.core.notification.NotificationStyle
 import com.ringfence.silentscheduler.core.ringer.RevertPolicy
 import com.ringfence.silentscheduler.core.ringer.SilenceStyle
@@ -234,6 +235,23 @@ fun SettingsScreen(
                     onClick = { viewModel.setThemeOverride(ThemeOverride.SYSTEM) }
                 )
             }
+        }
+
+        Spacer(Modifier.height(20.dp))
+
+        SettingsSection(title = stringResource(R.string.settings_section_language)) {
+            RadioOptionRow(
+                title = stringResource(R.string.language_option_english_title),
+                subtitle = stringResource(R.string.language_option_english_subtitle),
+                selected = settings.languageOverride == AppLanguage.ENGLISH,
+                onClick = { viewModel.setLanguageOverride(AppLanguage.ENGLISH) }
+            )
+            RadioOptionRow(
+                title = stringResource(R.string.language_option_bengali_title),
+                subtitle = stringResource(R.string.language_option_bengali_subtitle),
+                selected = settings.languageOverride == AppLanguage.BENGALI,
+                onClick = { viewModel.setLanguageOverride(AppLanguage.BENGALI) }
+            )
         }
 
         Spacer(Modifier.height(20.dp))

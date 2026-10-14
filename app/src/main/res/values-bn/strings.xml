@@ -1,0 +1,173 @@
+<resources>
+    <string name="app_name">Ringfence</string>
+
+    <string name="onboarding_language_headline">আপনার ভাষা বেছে নিন</string>
+    <string name="onboarding_language_body">আপনি সেটিংস থেকে যেকোনো সময় এটি পরিবর্তন করতে পারবেন।</string>
+    <string name="onboarding_language_continue_cta">পরবর্তী</string>
+    <string name="language_option_english_title">English</string>
+    <string name="language_option_english_subtitle">English</string>
+    <string name="language_option_bengali_title">বাংলা</string>
+    <string name="language_option_bengali_subtitle">Bengali</string>
+
+    <string name="onboarding_headline">আপনার ফোন নিজেই সাউন্ড চালু করতে ভুলবে না।</string>
+    <string name="onboarding_body">Ringfence একটি উইন্ডো শুরু হলে ফোন সাইলেন্ট করে দেয় এবং শেষ হওয়ার সাথে সাথেই সাউন্ড ফিরিয়ে আনে। ভুলবশত কখনো সাইলেন্ট থেকে যায় না।</string>
+    <string name="onboarding_bullet_dnd_title">Do Not Disturb অ্যাক্সেস</string>
+    <string name="onboarding_bullet_dnd_body">আপনার রিংগার পরিবর্তনের জন্য প্রয়োজন — এটিই একমাত্র পারমিশন যা আমরা চাই।</string>
+    <string name="onboarding_bullet_schedule_title">শিডিউল অনুযায়ী চলে, ব্যাকগ্রাউন্ডে নয়</string>
+    <string name="onboarding_bullet_schedule_body">কোনো লোকেশন, কন্টাক্ট বা নেটওয়ার্ক অ্যাক্সেস নেই। শুধু টাইমার।</string>
+    <string name="onboarding_bullet_revert_title">সবসময় ফিরিয়ে আনে</string>
+    <string name="onboarding_bullet_revert_body">উইন্ডো চলার মাঝে অ্যাপ বন্ধ হয়ে গেলেও, পরের বার চালু হলেই সাউন্ড ফিরে আসবে।</string>
+    <string name="onboarding_allow_cta">Do Not Disturb অ্যাক্সেস দিন</string>
+    <string name="onboarding_not_now">এখন না</string>
+
+    <string name="onboarding_templates_headline">আপনার প্রথম উইন্ডো বেছে নিন</string>
+    <string name="onboarding_templates_body">পরিচিত কোনো একটি দিয়ে শুরু করুন, বা স্কিপ করে ড্যাশবোর্ড থেকে নিজের মতো তৈরি করুন।</string>
+    <string name="onboarding_template_work_title">অফিসের সময়</string>
+    <string name="onboarding_template_work_desc">সকাল ৯:০০ – বিকাল ৫:০০, কর্মদিবসে</string>
+    <string name="onboarding_template_prayer_title">নামাজের সময়</string>
+    <string name="onboarding_template_prayer_desc">ফজর, দুহর, আসর, মাগরিব, এশা — প্রতিদিন</string>
+    <string name="onboarding_template_focus_title">ফোকাস ব্লক</string>
+    <string name="onboarding_template_focus_desc">সকাল ১০:০০ – ১১:০০, প্রতিদিন</string>
+    <string name="onboarding_templates_continue_cta">পরবর্তী</string>
+    <string name="onboarding_templates_skip">স্কিপ</string>
+
+    <string name="onboarding_quick_silence_headline">এখনই নিরিবিলি প্রয়োজন?</string>
+    <string name="onboarding_quick_silence_body">Quick Silence কোনো শিডিউল ছাড়াই আপনার যত সময় প্রয়োজন তত সময়ের জন্য ফোন তৎক্ষণাৎ সাইলেন্ট করে দেয়। এখন একটি ছোট সেশন চালিয়ে দেখুন।</string>
+    <string name="onboarding_quick_silence_try_cta">১ মিনিটের জন্য Quick Silence চালু করুন</string>
+    <string name="onboarding_quick_silence_finish">সম্পন্ন</string>
+
+    <string name="exact_alarm_headline">সঠিক সময়ে সাইলেন্সের জন্য আরেকটি পারমিশন।</string>
+    <string name="exact_alarm_body">Exact alarm অ্যাক্সেস না থাকলে, Android আপনার সাউন্ড ফিরিয়ে আনতে এক মিনিট পর্যন্ত দেরি করতে পারে। শিডিউল অনুযায়ী ঠিক সময়ে উইন্ডো শেষ হওয়ার জন্য এটি চালু করুন।</string>
+    <string name="exact_alarm_allow_cta">Exact alarm অনুমতি দিন</string>
+
+    <string name="dnd_access_declined_placeholder">DND অ্যাক্সেস দেওয়া হয়নি।\nপরে অনুমতি দিতে এখান থেকে সেটিংস খুলুন।</string>
+
+    <string name="quick_silence_sheet_title">এখন সাইলেন্ট</string>
+    <string name="quick_silence_sheet_body">সাউন্ড নিজেই ফিরে আসবে। এটি আপনার নিয়মিত শিডিউলে কোনো পরিবর্তন করে না।</string>
+    <string name="quick_silence_until_short">%1$s পর্যন্ত</string>
+    <string name="quick_silence_custom_label">কাস্টম</string>
+    <string name="quick_silence_custom_until">%1$s পর্যন্ত সাইলেন্ট</string>
+    <string name="quick_silence_minutes_format">%1$dমি</string>
+    <string name="quick_silence_decrease_cd">সময় কমান</string>
+    <string name="quick_silence_increase_cd">সময় বাড়ান</string>
+    <string name="quick_silence_start_custom_cta">কাস্টম সাইলেন্স শুরু করুন</string>
+
+    <string name="nav_schedules">শিডিউল</string>
+    <string name="nav_silent_now">এখন সাইলেন্ট</string>
+    <string name="nav_settings">সেটিংস</string>
+
+    <string name="dashboard_brand_label">RINGFENCE</string>
+    <string name="action_add_schedule">শিডিউল যুক্ত করুন</string>
+    <string name="action_settings">সেটিংস</string>
+    <string name="dashboard_section_recurring">পুনরাবৃত্ত শিডিউল</string>
+    <string name="dashboard_count_format">%2$d টির মধ্যে %1$d চালু</string>
+    <string name="dashboard_selected_count">%1$d টি নির্বাচিত</string>
+    <string name="action_cancel_selection">নির্বাচন বাতিল</string>
+    <string name="action_delete_selected">নির্বাচিত মুছুন</string>
+    <string name="dashboard_delete_selected_title">%1$d টি শিডিউল মুছবেন?</string>
+    <string name="dashboard_delete_selected_body">এটি ফিরিয়ে আনা যাবে না।</string>
+    <string name="dashboard_delete_selected_confirm">মুছুন</string>
+    <string name="dashboard_delete_selected_cancel">বাতিল</string>
+    <string name="dashboard_end_silence_now">এখনই সাইলেন্স বন্ধ করুন</string>
+    <string name="dashboard_end_silence_caption">সাউন্ড নিজেই ফিরে আসবে। কিছু করার প্রয়োজন নেই।</string>
+    <string name="dashboard_silent_now">এখন সাইলেন্ট</string>
+    <string name="dashboard_now_badge">এখন</string>
+    <string name="dashboard_silent_status">⊘ সাইলেন্ট</string>
+    <string name="dashboard_sound_on_status">সাউন্ড চালু</string>
+    <string name="dashboard_all_off_title">সব শিডিউল বন্ধ</string>
+    <string name="dashboard_all_off_body">কোনোটাই এখন নিজে থেকে সাইলেন্ট করবে না। আপনার উইন্ডোগুলো রয়ে গেছে, শুধু সক্রিয় নয়।</string>
+    <string name="dashboard_resume_all">সব চালু করুন</string>
+    <string name="dashboard_notifications_disabled_title">নোটিফিকেশন বন্ধ আছে</string>
+    <string name="dashboard_notifications_disabled_body">উইন্ডো শুরু বা শেষ হলে আপনি কোনো অ্যালার্ট দেখতে পাবেন না। তবে সাউন্ড ঠিক সময়েই সাইলেন্ট ও পুনরুদ্ধার হবে।</string>
+    <string name="dashboard_notifications_disabled_cta">চালু করুন</string>
+    <string name="dashboard_already_silent_warning">এই উইন্ডো শুরুর আগেই আপনার ফোন সাইলেন্ট ছিল। তাই এটি সাউন্ডে না গিয়ে সাইলেন্টেই ফিরে যাবে।</string>
+    <string name="dashboard_turn_sound_on">সাউন্ড চালু করুন</string>
+
+    <string name="schedule_edit_add_title">উইন্ডো যুক্ত করুন</string>
+    <string name="schedule_edit_edit_title">উইন্ডো সম্পাদনা করুন</string>
+    <string name="schedule_edit_cancel">বাতিল</string>
+    <string name="schedule_edit_save_new">শিডিউল সংরক্ষণ করুন</string>
+    <string name="schedule_edit_save_edit">পরিবর্তন সংরক্ষণ করুন</string>
+    <string name="schedule_edit_invalid_title">শুরু ও শেষের সময় একই</string>
+    <string name="schedule_edit_invalid_body">একটি উইন্ডোর জন্য কমপক্ষে ৫ মিনিট প্রয়োজন। পুরো ২৪ ঘণ্টার জন্য দুটি শিডিউল ব্যবহার করুন।</string>
+    <string name="schedule_edit_label_section">লেবেল</string>
+    <string name="schedule_edit_label_placeholder">লেবেল</string>
+    <string name="schedule_edit_window_section">উইন্ডো</string>
+    <string name="schedule_edit_start">শুরু</string>
+    <string name="schedule_edit_end">শেষ</string>
+    <string name="schedule_edit_duration_caption">%1$s সাইলেন্স</string>
+    <string name="schedule_edit_crosses_midnight">মধ্যরাত অতিক্রম করে</string>
+    <string name="schedule_edit_time_dialog_am">AM</string>
+    <string name="schedule_edit_time_dialog_pm">PM</string>
+    <string name="schedule_edit_repeat_section">পুনরাবৃত্তি</string>
+    <string name="schedule_edit_every_day">প্রতিদিন</string>
+    <string name="schedule_edit_weekdays">কর্মদিবস</string>
+    <string name="schedule_edit_weekends">সাপ্তাহিক ছুটি</string>
+    <string name="schedule_edit_silence_style_section">সাইলেন্স স্টাইল</string>
+    <string name="schedule_edit_revert_section">শেষ হলে</string>
+    <string name="schedule_edit_revert_restore_title">পূর্বের অবস্থায় ফিরিয়ে আনুন</string>
+    <string name="schedule_edit_revert_restore_subtitle">উইন্ডো শুরুর আগে ফোন সাইলেন্ট থাকলে, শেষেও সাইলেন্ট থেকে যাবে।</string>
+    <string name="schedule_edit_revert_sound_title">সবসময় সাউন্ড চালু করুন</string>
+    <string name="schedule_edit_revert_sound_subtitle">আগে যেমনই ছিল, শেষে সাউন্ড চালু করে দেওয়া হবে।</string>
+    <string name="schedule_edit_days_required">কমপক্ষে একটি দিন নির্বাচন করুন</string>
+    <string name="schedule_edit_delete">শিডিউল মুছুন</string>
+
+    <string name="settings_title">সেটিংস</string>
+    <string name="settings_section_duration">ডিফল্ট সাইলেন্স সময়</string>
+    <string name="settings_duration_caption">কোনো চিপ না বেছে Silent now ট্যাপ করলে এটি ব্যবহৃত হয়।</string>
+    <string name="settings_duration_15m">১৫মি</string>
+    <string name="settings_duration_30m">৩০মি</string>
+    <string name="settings_duration_1h">১ঘ</string>
+    <string name="settings_duration_2h">২ঘ</string>
+    <string name="settings_section_silence_style">সাইলেন্স স্টাইল</string>
+    <string name="settings_silence_style_full">সম্পূর্ণ সাইলেন্ট</string>
+    <string name="settings_silence_style_vibrate">শুধু ভাইব্রেট</string>
+    <string name="settings_section_revert">উইন্ডো শেষ হলে</string>
+    <string name="settings_revert_restore_title">পূর্বের অবস্থায় ফিরিয়ে আনুন</string>
+    <string name="settings_revert_restore_subtitle">উইন্ডো শুরুর সময় রিংগার যা ছিল তাতেই ফিরিয়ে দেয়।</string>
+    <string name="settings_revert_sound_title">সবসময় সাউন্ড চালু করুন</string>
+    <string name="settings_revert_sound_subtitle">আগে যেই মোডেই থাকুক, প্রতিটি উইন্ডো সাউন্ড চালু করে শেষ হয়।</string>
+    <string name="settings_revert_caption">নতুন শিডিউল এবং Quick Silence-এর জন্য ডিফল্ট। প্রতিটি শিডিউল এটি পরিবর্তন করতে পারে।</string>
+    <string name="settings_section_notification_style">নোটিফিকেশন স্টাইল</string>
+    <string name="settings_notification_banner_title">ব্যানার</string>
+    <string name="settings_notification_banner_subtitle">সাইলেন্স শুরু ও শেষ হলে জানান</string>
+    <string name="settings_notification_silent_log_title">সাইলেন্ট লগ</string>
+    <string name="settings_notification_silent_log_subtitle">কোনো অ্যালার্ট নেই, শুধু হিস্ট্রিতে দেখা যায়</string>
+    <string name="settings_notification_none_title">কোনোটিই না</string>
+    <string name="settings_notification_none_subtitle">কখনো জানাবেন না</string>
+    <string name="settings_section_language">ভাষা</string>
+    <string name="settings_section_appearance">অ্যাপিয়ারেন্স</string>
+    <string name="settings_appearance_light">লাইট</string>
+    <string name="settings_appearance_dark">ডার্ক</string>
+    <string name="settings_appearance_system">সিস্টেম</string>
+    <string name="settings_appearance_caption_system_dark">সিস্টেম ডিফল্ট: ডার্ক। যেকোনো সময় পরিবর্তন করুন।</string>
+    <string name="settings_appearance_caption_system_light">সিস্টেম ডিফল্ট: লাইট। যেকোনো সময় পরিবর্তন করুন।</string>
+    <string name="settings_dnd_status_title">Do Not Disturb অ্যাক্সেস</string>
+    <string name="settings_dnd_status_granted">দেওয়া আছে</string>
+    <string name="settings_dnd_status_required">প্রয়োজন</string>
+    <string name="settings_dnd_open_settings">সেটিংস খুলুন</string>
+
+    <string name="notification_channel_banner_name">সাইলেন্স অ্যালার্ট</string>
+    <string name="notification_channel_banner_desc">সাইলেন্স উইন্ডো শুরু ও শেষ হলে জানায়</string>
+    <string name="notification_channel_silent_log_name">সাইলেন্স লগ</string>
+    <string name="notification_channel_silent_log_desc">সাইলেন্স শুরু ও শেষের নিঃশব্দ রেকর্ড, কোনো অ্যালার্ট নেই</string>
+    <string name="notification_silence_started_title">সাইলেন্ট — %1$s</string>
+    <!-- Only shown once the notification is expanded — the peek and the collapsed
+    shade row show just the title ("সাইলেন্ট — Label"), nothing underneath it. -->
+    <string name="notification_silence_started_text">স্বয়ংক্রিয়ভাবে শেষ না হওয়া পর্যন্ত সাউন্ড বন্ধ থাকবে।</string>
+    <string name="notification_silence_ended_title">পুনরুদ্ধার — %1$s</string>
+    <string name="notification_silence_ended_text">রিংগার %1$s-এ পুনরুদ্ধার করা হয়েছে।</string>
+    <string name="notification_action_end_silence">সাইলেন্স বন্ধ করুন</string>
+
+    <string name="widget_wide_picker_label">Ringfence (Wide)</string>
+    <string name="widget_small_picker_label">Ringfence (Compact)</string>
+    <string name="widget_status_silent">সাইলেন্ট</string>
+    <string name="widget_status_sound_on">সাউন্ড চালু</string>
+    <string name="widget_next_format">পরবর্তী: %1$s, %2$s</string>
+    <string name="widget_until_format">%1$s · %2$s পর্যন্ত</string>
+    <string name="widget_no_schedules">এখনো কোনো শিডিউল নেই</string>
+    <string name="widget_all_off">সব শিডিউল বন্ধ আছে</string>
+    <string name="widget_footer_silent">আগে শেষ করতে রিং-এ ট্যাপ করুন</string>
+    <string name="widget_footer_sound_on">সাইলেন্ট করতে একটি সময় ট্যাপ করুন</string>
+    <string name="widget_placeholder_value">—</string>
+</resources>

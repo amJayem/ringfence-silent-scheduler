@@ -43,6 +43,11 @@ android {
 
 dependencies {
     implementation(libs.core.ktx)
+    // Per-app language switching (AppCompatDelegate.setApplicationLocales) — the
+    // framework LocaleManager this backs only exists on API 33+, and this app's
+    // min SDK is 26; appcompat's compat layer (plus the manifest service below)
+    // covers the gap without needing AppCompatActivity anywhere in the app.
+    implementation(libs.appcompat)
     implementation(libs.lifecycle.runtime.ktx)
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.lifecycle.runtime.compose)

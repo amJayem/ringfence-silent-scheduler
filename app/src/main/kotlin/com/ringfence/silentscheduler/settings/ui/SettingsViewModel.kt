@@ -4,6 +4,7 @@ import android.app.NotificationManager
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ringfence.silentscheduler.core.locale.AppLanguage
 import com.ringfence.silentscheduler.core.notification.NotificationStyle
 import com.ringfence.silentscheduler.core.ringer.RevertPolicy
 import com.ringfence.silentscheduler.core.ringer.SilenceStyle
@@ -58,5 +59,9 @@ class SettingsViewModel @Inject constructor(
 
     fun setThemeOverride(override: ThemeOverride) {
         viewModelScope.launch { settingsRepository.setThemeOverride(override) }
+    }
+
+    fun setLanguageOverride(language: AppLanguage) {
+        viewModelScope.launch { settingsRepository.setLanguageOverride(language) }
     }
 }

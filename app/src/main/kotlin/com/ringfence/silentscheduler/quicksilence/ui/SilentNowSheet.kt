@@ -127,7 +127,7 @@ fun SilentNowSheet(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     StepperButton(
                         iconRes = R.drawable.ic_minus,
                         contentDescription = stringResource(R.string.quick_silence_decrease_cd),
@@ -136,9 +136,14 @@ fun SilentNowSheet(
                     Text(
                         stringResource(R.string.quick_silence_minutes_format, selectedMinutes),
                         style = MaterialTheme.typography.titleMedium,
-                        // min-width:66px in the design — a floor, not a fixed width, so
-                        // "240m" still grows instead of clipping at the top of the range.
-                        modifier = Modifier.widthIn(min = 66.dp),
+                        // min-width:66px in the design was sized for English digits —
+                        // Bengali's মিঃ/ঘঃ abbreviations run wider, crowding the ± buttons
+                        // with little room left on either side; the extra floor width plus
+                        // this text's own horizontal padding keeps a visible gap in both
+                        // languages instead of only when the string happens to be short.
+                        modifier = Modifier
+                            .widthIn(min = 76.dp)
+                            .padding(horizontal = 6.dp),
                         textAlign = TextAlign.Center,
                         maxLines = 1
                     )

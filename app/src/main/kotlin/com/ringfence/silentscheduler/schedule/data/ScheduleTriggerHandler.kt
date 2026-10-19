@@ -69,6 +69,7 @@ class ScheduleTriggerHandler @Inject constructor(
             ?.atZone(ZoneId.systemDefault())?.toInstant()?.toEpochMilli()
             ?: System.currentTimeMillis()
         silenceNotifier.notifySilenceStarted(
+            scheduleId,
             schedule?.label ?: "Schedule",
             notificationStyle,
             endEpochMillis,
@@ -97,7 +98,7 @@ class ScheduleTriggerHandler @Inject constructor(
             // actually went un-silent — if another window is still silencing,
             // restoredMode is null and nothing should claim "sound is back".
             if (restoredMode != null) {
-                silenceNotifier.notifySilenceEnded(scheduleLabel(scheduleId), notificationStyle, restoredMode.toFriendlyRingerModeName())
+                silenceNotifier.notifySilenceEnded(scheduleId, scheduleLabel(scheduleId), notificationStyle, restoredMode.toFriendlyRingerModeName())
             }
         } else {
             Log.i(TAG, "END $scheduleId: was not tracked active, nothing to revert")
@@ -106,7 +107,7 @@ class ScheduleTriggerHandler @Inject constructor(
             // notifySilenceEnded — leaving the "silence is active" notification stuck
             // on screen indefinitely even though the phone is already back to normal.
             // Clearing it here is harmless when nothing is actually posted.
-            silenceNotifier.cancelActiveNotification(scheduleLabel(scheduleId))
+            silenceNotifier.cancelActiveNotification(scheduleId)
         }
 
         // Cancels any still-pending natural end alarm for today's occurrence — matters
@@ -132,9 +133,9 @@ class ScheduleTriggerHandler @Inject constructor(
         val key = activeKey(scheduleId)
         if (preferencesDataStore.data.first()[key] != true) return
         // Resolved before the caller (SchedulingScheduleRepository.deleteSchedule) is
-        // allowed to actually remove the schedule from the store — otherwise this falls
-        // back to the generic "Schedule" label, whose hashCode() doesn't match the id
-        // the active notification was actually posted under, leaving it stuck forever.
+        // allowed to actually remove the schedule from the store, for the displayed
+        // text only — the notification's own id is scheduleId itself (stable even
+        // across a mid-window rename), not derived from this label.
         val label = scheduleLabel(scheduleId)
         preferencesDataStore.edit { prefs -> prefs.remove(key) }
         val schedule = repository.observeSchedules().first().find { it.id == scheduleId }
@@ -146,11 +147,11 @@ class ScheduleTriggerHandler @Inject constructor(
         // session that no longer existed.
         if (restoredMode != null) {
             val notificationStyle = settingsRepository.observeSettings().first().notificationStyle
-            silenceNotifier.notifySilenceEnded(label, notificationStyle, restoredMode.toFriendlyRingerModeName())
+            silenceNotifier.notifySilenceEnded(scheduleId, label, notificationStyle, restoredMode.toFriendlyRingerModeName())
         } else {
             // Another window is still silencing, so there's no "sound is back" to
             // announce — just clear this schedule's own now-stale notification.
-            silenceNotifier.cancelActiveNotification(label)
+            silenceNotifier.cancelActiveNotification(scheduleId)
         }
     }
 
@@ -180,7 +181,7 @@ class ScheduleTriggerHandler @Inject constructor(
             if (!stillActive) {
                 Log.i(TAG, "reconcileStaleActiveFlags ${schedule.id}: window already over, clearing stuck flag/notification")
                 preferencesDataStore.edit { prefs -> prefs.remove(key) }
-                silenceNotifier.cancelActiveNotification(schedule.label)
+                silenceNotifier.cancelActiveNotification(schedule.id)
             }
         }
     }

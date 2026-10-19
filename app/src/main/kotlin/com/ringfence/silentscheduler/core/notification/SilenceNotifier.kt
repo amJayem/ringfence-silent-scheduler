@@ -73,9 +73,9 @@ class SilenceNotifier @Inject constructor(
      * notification's collapsed state with no reposting or background work needed.
      * @param endAction identifies which real session "End silence" should end.
      */
-    fun notifySilenceStarted(label: String, style: NotificationStyle, endEpochMillis: Long, endAction: SilenceEndAction) {
+    fun notifySilenceStarted(sessionKey: String, label: String, style: NotificationStyle, endEpochMillis: Long, endAction: SilenceEndAction) {
         post(
-            id = label.hashCode(),
+            id = sessionKey.hashCode(),
             style = style,
             // The title alone ("Silent — Label") is meant to be the whole visible
             // message on the peek and the collapsed shade row — no separate status
@@ -101,14 +101,20 @@ class SilenceNotifier @Inject constructor(
      * the ringer already correctly reverted) but the ongoing notification still stuck
      * from an interrupted transaction, where a normal end never reached the point of
      * replacing it with [notifySilenceEnded]. Harmless no-op if nothing is posted.
+     *
+     * [sessionKey] must be the same stable identity passed to [notifySilenceStarted] for
+     * this session — the schedule's own id for a schedule, not its (user-editable)
+     * label. Keying the notification's id off the label let a mid-window rename
+     * desynchronize this call from the notification actually on screen, leaving it
+     * stuck forever since nothing could ever compute a matching id again.
      */
-    fun cancelActiveNotification(label: String) {
-        notificationManager.cancel(label.hashCode())
+    fun cancelActiveNotification(sessionKey: String) {
+        notificationManager.cancel(sessionKey.hashCode())
     }
 
-    fun notifySilenceEnded(label: String, style: NotificationStyle, restoredModeName: String) {
+    fun notifySilenceEnded(sessionKey: String, label: String, style: NotificationStyle, restoredModeName: String) {
         post(
-            id = label.hashCode(),
+            id = sessionKey.hashCode(),
             style = style,
             title = context.getString(R.string.notification_silence_ended_title, label),
             shortText = "",

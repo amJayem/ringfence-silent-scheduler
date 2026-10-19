@@ -25,6 +25,12 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
+// Fixed, not derived from the (locale-dependent, and elsewhere user-renamable per
+// schedule) display label — see ScheduleTriggerHandler's scheduleId-keyed equivalent
+// for why a notification's id must never be computed from text that can change out
+// from under an already-posted notification.
+private const val QUICK_SILENCE_SESSION_KEY = "quick_silence"
+
 private object Keys {
     val IS_ACTIVE = booleanPreferencesKey("quick_silence_is_active")
     val START_TIME = longPreferencesKey("quick_silence_start_time")
@@ -71,7 +77,7 @@ class QuickSilenceRepositoryImpl @Inject constructor(
         // reachable). Not wrapped defensively here — CLAUDE.md's revoked-permission
         // banner belongs on the Dashboard (step 7), not swallowed silently here.
         silencerCoordinator.onWindowStart(settings.silenceStyle)
-        silenceNotifier.notifySilenceStarted(quickSilenceLabel, settings.notificationStyle, endTime, SilenceEndAction.QuickSilence)
+        silenceNotifier.notifySilenceStarted(QUICK_SILENCE_SESSION_KEY, quickSilenceLabel, settings.notificationStyle, endTime, SilenceEndAction.QuickSilence)
         alarmScheduler.scheduleRevert(endTime)
         widgetRefresher.refresh()
     }
@@ -91,9 +97,9 @@ class QuickSilenceRepositoryImpl @Inject constructor(
         // null-branch cleanup for the same shared-counter design).
         if (restoredMode != null) {
             val notificationStyle = settingsRepository.observeSettings().first().notificationStyle
-            silenceNotifier.notifySilenceEnded(quickSilenceLabel, notificationStyle, restoredMode.toFriendlyRingerModeName())
+            silenceNotifier.notifySilenceEnded(QUICK_SILENCE_SESSION_KEY, quickSilenceLabel, notificationStyle, restoredMode.toFriendlyRingerModeName())
         } else {
-            silenceNotifier.cancelActiveNotification(quickSilenceLabel)
+            silenceNotifier.cancelActiveNotification(QUICK_SILENCE_SESSION_KEY)
         }
         alarmScheduler.cancelRevert()
         widgetRefresher.refresh()

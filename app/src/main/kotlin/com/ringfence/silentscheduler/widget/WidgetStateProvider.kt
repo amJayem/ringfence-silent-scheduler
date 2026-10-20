@@ -6,6 +6,7 @@ import com.ringfence.silentscheduler.R
 import com.ringfence.silentscheduler.core.time.formatMinuteOfDay
 import com.ringfence.silentscheduler.core.time.formatWidgetCountdown
 import com.ringfence.silentscheduler.quicksilence.domain.QuickSilenceRepository
+import com.ringfence.silentscheduler.schedule.data.ScheduleTriggerHandler
 import com.ringfence.silentscheduler.schedule.domain.RecurringScheduleCalculator
 import com.ringfence.silentscheduler.schedule.domain.ScheduleRepository
 import com.ringfence.silentscheduler.schedule.domain.toRepeatSummary
@@ -30,6 +31,7 @@ import javax.inject.Singleton
 class WidgetStateProvider @Inject constructor(
     private val scheduleRepository: ScheduleRepository,
     private val quickSilenceRepository: QuickSilenceRepository,
+    private val scheduleTriggerHandler: ScheduleTriggerHandler,
     private val settingsRepository: SettingsRepository,
     @ApplicationContext private val context: Context
 ) {
@@ -37,7 +39,15 @@ class WidgetStateProvider @Inject constructor(
         // Self-heal first, same as the Dashboard's own ticker — the widget is often
         // the only thing showing when the app itself hasn't been reopened since a
         // missed revert alarm, so it must not trust a stale "still silent" flag.
+        // Both repositories are reconciled: this runs every minute via
+        // WidgetTickScheduler whenever anything is silencing (quick silence or a
+        // schedule), which is the only thing that previously caught a missed
+        // schedule-end alarm independent of the app being reopened — before this,
+        // only the quick-silence side of that tick actually self-healed, so a lost
+        // schedule-end alarm left its "silence is active" notification stuck with a
+        // countdown running negative for as long as the app stayed unopened.
         quickSilenceRepository.reconcileIfExpired()
+        scheduleTriggerHandler.reconcileStaleActiveFlags()
 
         val now = LocalDateTime.now()
         val zone = ZoneId.systemDefault()

@@ -1,7 +1,9 @@
 package com.ringfence.silentscheduler.schedule.ui
 
+import android.app.AlarmManager
 import android.content.Context
 import android.media.AudioManager
+import android.os.Build
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -91,7 +93,14 @@ data class DashboardUiState(
     // blocking them entirely (POST_NOTIFICATIONS denied/revoked, or the app disabled
     // in system notification settings) — R-style "don't silently fail" guard, since
     // SilenceNotifier itself just no-ops in that case with nothing visible to the user.
-    val showNotificationsDisabledBanner: Boolean = false
+    val showNotificationsDisabledBanner: Boolean = false,
+    // True when Android 12+'s "Alarms & reminders" special access has been revoked
+    // for this app — every schedule/quick-silence alarm then silently falls back to
+    // inexact (ExactAlarmScheduling.scheduleExactOrInexact), which under Doze can
+    // drift by tens of minutes with nothing in the UI explaining why a window
+    // started or ended late. Same "don't silently fail" rule as the notifications
+    // banner above, just for the other permission this app depends on.
+    val showExactAlarmRevokedBanner: Boolean = false
 )
 
 @HiltViewModel
@@ -116,6 +125,18 @@ class DashboardViewModel @Inject constructor(
      */
     fun refreshNotificationPermissionStatus() {
         _isSystemNotificationsEnabled.value = NotificationManagerCompat.from(context).areNotificationsEnabled()
+    }
+
+    private val _isExactAlarmGranted = MutableStateFlow(canScheduleExactAlarms())
+
+    /** Same reasoning as [refreshNotificationPermissionStatus]: only changeable from system Settings, re-checked on resume. */
+    fun refreshExactAlarmPermissionStatus() {
+        _isExactAlarmGranted.value = canScheduleExactAlarms()
+    }
+
+    private fun canScheduleExactAlarms(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return true
+        return context.getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
     }
 
     // Recomputes derived state (countdowns, NOW badges) even when nothing in
@@ -169,6 +190,8 @@ class DashboardViewModel @Inject constructor(
         buildState(schedules, quickSilence, globalPriorMode, LocalDateTime.now())
     }.combine(showNotificationsDisabledBanner) { state, showBanner ->
         state.copy(showNotificationsDisabledBanner = showBanner)
+    }.combine(_isExactAlarmGranted) { state, isGranted ->
+        state.copy(showExactAlarmRevokedBanner = !isGranted)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DashboardUiState())
 
     private fun buildState(

@@ -82,6 +82,9 @@
     <string name="dashboard_notifications_disabled_title">Notifications are off</string>
     <string name="dashboard_notifications_disabled_body">You won\'t see an alert when a window starts or ends. Sound still silences and reverts on time.</string>
     <string name="dashboard_notifications_disabled_cta">Enable</string>
+    <string name="dashboard_exact_alarm_revoked_title">Precise timing turned off</string>
+    <string name="dashboard_exact_alarm_revoked_body">Windows may start or end a little late — the system no longer guarantees exact timing for this app.</string>
+    <string name="dashboard_exact_alarm_revoked_cta">Fix</string>
     <string name="dashboard_already_silent_warning">Your phone was already on silent before this window. It will go back to silent, not sound.</string>
     <string name="dashboard_turn_sound_on">Turn sound on</string>
 

@@ -82,6 +82,9 @@
     <string name="dashboard_notifications_disabled_title">নোটিফিকেশন বন্ধ আছে</string>
     <string name="dashboard_notifications_disabled_body">উইন্ডো শুরু বা শেষ হলে আপনি কোনো অ্যালার্ট দেখতে পাবেন না। তবে সাউন্ড ঠিক সময়েই সাইলেন্ট হবে ও আবার ফিরে আসবে।</string>
     <string name="dashboard_notifications_disabled_cta">চালু করুন</string>
+    <string name="dashboard_exact_alarm_revoked_title">নিখুঁত সময় বন্ধ আছে</string>
+    <string name="dashboard_exact_alarm_revoked_body">উইন্ডো শুরু বা শেষ হতে একটু দেরি হতে পারে — সিস্টেম এখন আর এই অ্যাপের জন্য নিখুঁত সময় নিশ্চিত করে না।</string>
+    <string name="dashboard_exact_alarm_revoked_cta">ঠিক করুন</string>
     <string name="dashboard_already_silent_warning">এই উইন্ডো শুরুর আগেই আপনার ফোন সাইলেন্ট ছিল। তাই এটি সাউন্ডে না গিয়ে সাইলেন্টেই ফিরে যাবে।</string>
     <string name="dashboard_turn_sound_on">সাউন্ড চালু করুন</string>
 

@@ -1,6 +1,7 @@
 package com.ringfence.silentscheduler.schedule.ui
 
 import android.content.Intent
+import android.net.Uri
 import android.provider.Settings
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.LinearEasing
@@ -127,7 +128,10 @@ fun DashboardScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) viewModel.refreshNotificationPermissionStatus()
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refreshNotificationPermissionStatus()
+                viewModel.refreshExactAlarmPermissionStatus()
+            }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
@@ -260,6 +264,19 @@ fun DashboardScreen(
                                 context.startActivity(
                                     Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                                         .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                                )
+                            }
+                        )
+                        Spacer(Modifier.height(if (compact) 12.dp else 16.dp))
+                    }
+
+                    if (state.showExactAlarmRevokedBanner) {
+                        val context = LocalContext.current
+                        ExactAlarmRevokedBanner(
+                            onOpenExactAlarmSettings = {
+                                context.startActivity(
+                                    Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                                        .setData(Uri.parse("package:${context.packageName}"))
                                 )
                             }
                         )
@@ -770,6 +787,54 @@ private fun NotificationsDisabledBanner(onOpenNotificationSettings: () -> Unit) 
             ) {
                 Text(
                     stringResource(R.string.dashboard_notifications_disabled_cta),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Shown when Android 12+'s "Alarms & reminders" special access has been revoked —
+ * every schedule/quick-silence alarm then silently falls back to inexact
+ * (ExactAlarmScheduling.scheduleExactOrInexact), which can drift by tens of minutes
+ * under Doze with nothing else telling the user why a window ran late.
+ */
+@Composable
+private fun ExactAlarmRevokedBanner(onOpenExactAlarmSettings: () -> Unit) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.errorContainer,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    stringResource(R.string.dashboard_exact_alarm_revoked_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onErrorContainer
+                )
+                Text(
+                    stringResource(R.string.dashboard_exact_alarm_revoked_body),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.surface,
+                modifier = Modifier.clickable(onClick = onOpenExactAlarmSettings)
+            ) {
+                Text(
+                    stringResource(R.string.dashboard_exact_alarm_revoked_cta),
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary,

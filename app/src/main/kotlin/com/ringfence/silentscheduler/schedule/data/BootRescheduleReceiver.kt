@@ -22,8 +22,15 @@ class BootRescheduleReceiver : BroadcastReceiver() {
     @Inject
     lateinit var repository: ScheduleRepository
 
+    @Inject
+    lateinit var reconciliationScheduler: ScheduleReconciliationScheduler
+
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
+        // Reboot clears every AlarmManager alarm, this backstop included — without
+        // re-arming it here, a start alarm dropped after this reboot would have no
+        // background-safe way to ever be caught again.
+        reconciliationScheduler.start()
         val pendingResult = goAsync()
         CoroutineScope(Dispatchers.Default).launch {
             try {

@@ -3,6 +3,7 @@ package com.ringfence.silentscheduler
 import android.app.Application
 import com.ringfence.silentscheduler.core.ringer.SilencerCoordinator
 import com.ringfence.silentscheduler.quicksilence.domain.QuickSilenceRepository
+import com.ringfence.silentscheduler.schedule.data.ScheduleReconciliationScheduler
 import com.ringfence.silentscheduler.schedule.data.ScheduleTriggerHandler
 import com.ringfence.silentscheduler.schedule.domain.RecurringScheduleCalculator
 import com.ringfence.silentscheduler.schedule.domain.ScheduleRepository
@@ -37,8 +38,19 @@ class RingfenceApp : Application() {
     @Inject
     lateinit var widgetRefresher: WidgetRefresher
 
+    @Inject
+    lateinit var scheduleReconciliationScheduler: ScheduleReconciliationScheduler
+
     override fun onCreate() {
         super.onCreate()
+        // Unconditional and independent of anything being active right now — unlike
+        // WidgetTickScheduler's minute tick (only armed while a window is already
+        // silencing, so it can catch a lost *end* alarm but never a lost *start*),
+        // this is the backstop for a schedule's start alarm itself being dropped
+        // (Doze, an OEM battery manager, a revoked exact-alarm permission), which
+        // would otherwise skip an entire window with no DND, no notification, and no
+        // widget indicator until the app happened to be reopened.
+        scheduleReconciliationScheduler.start()
         // "Always reverts... on next launch" (see onboarding copy): if the revert
         // alarm was lost (force-stop, Doze, reboot) while a Quick Silence session was
         // running, the phone would otherwise stay muted forever with nothing left to

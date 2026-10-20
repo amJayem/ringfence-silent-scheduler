@@ -47,6 +47,10 @@
         </receiver>
 
         <receiver
+            android:name=".schedule.data.ScheduleReconciliationReceiver"
+            android:exported="false" />
+
+        <receiver
             android:name=".widget.WidgetTickReceiver"
             android:exported="false" />
 

@@ -12,7 +12,9 @@ fun ScheduleProto.toDomain(): Schedule = Schedule(
     label = label,
     startMinuteOfDay = startMinuteOfDay,
     endMinuteOfDay = endMinuteOfDay,
-    repeatDays = repeatDaysList.map { DayOfWeek.of(it) }.toSet(),
+    // Out-of-range values are dropped rather than passed to DayOfWeek.of(), which
+    // throws — one bad stored value must not make the whole schedule list unreadable.
+    repeatDays = repeatDaysList.filter { it in 1..7 }.map { DayOfWeek.of(it) }.toSet(),
     isEnabled = isEnabled,
     silenceStyle = if (silenceStyle == 1) SilenceStyle.VIBRATE_ONLY else SilenceStyle.FULL_SILENT,
     revertPolicy = if (revertPolicy == 1) RevertPolicy.SOUND else RevertPolicy.RESTORE

@@ -102,15 +102,31 @@ class ScheduleTriggerHandler @Inject constructor(
         val schedule = repository.observeSchedules().first().find { it.id == scheduleId }
         val now = LocalDateTime.now()
         val reference = effectiveReference(scheduleId, now)
-        if (schedule != null && schedule.isArmable() &&
-            RecurringScheduleCalculator.nextOccurrence(schedule, reference).isActiveAt(now)
-        ) {
-            // An end alarm armed for a time that no longer matches the clock (the time
-            // zone or system time changed after it was set): the window is genuinely
-            // still running, so keep silencing and just re-arm its real end.
-            Log.i(TAG, "END $scheduleId: window is still in progress, re-arming instead of ending")
-            alarmScheduler.scheduleNextOccurrence(schedule, reference)
-            return
+        if (schedule != null && schedule.isArmable()) {
+            val occurrence = RecurringScheduleCalculator.nextOccurrence(schedule, reference)
+            if (occurrence.isActiveAt(now)) {
+                val realEndMillis = occurrence.end.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                if (realEndMillis > System.currentTimeMillis()) {
+                    // An end alarm armed for a time that no longer matches the clock
+                    // (the time zone or system time changed after it was set): the
+                    // window is genuinely still running, so keep silencing and just
+                    // re-arm its real end.
+                    Log.i(TAG, "END $scheduleId: window is still in progress, re-arming instead of ending")
+                    alarmScheduler.scheduleNextOccurrence(schedule, reference)
+                    return
+                }
+                // The window's real end has passed but the wall clock reads a time
+                // inside it again: the hour that repeats when daylight saving ends
+                // (a 1:15-1:45 window finishes, then the clock goes back to 1:00).
+                // Mark this occurrence as over until the wall clock passes its end,
+                // exactly like a manual early end — otherwise every check would see
+                // "inside the window, not silencing", re-arm alarms that are already
+                // in the past, and start and end the same window over and over for
+                // the rest of the repeated hour.
+                preferencesDataStore.edit { prefs -> prefs[endedEarlyKey(scheduleId)] = occurrence.end.toString() }
+                finishAndRearm(scheduleId, schedule, occurrence.end)
+                return
+            }
         }
         finishAndRearm(scheduleId, schedule, reference)
     }

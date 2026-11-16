@@ -13,10 +13,13 @@ import com.ringfence.silentscheduler.settings.domain.AppSettings
 import com.ringfence.silentscheduler.settings.domain.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -32,6 +35,16 @@ class SettingsViewModel @Inject constructor(
 
     val settings: StateFlow<AppSettings> = settingsRepository.observeSettings()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppSettings())
+
+    /**
+     * The language as actually stored, with no placeholder first value. [settings]
+     * starts from [AppSettings]' defaults (English) until DataStore has loaded;
+     * applying the app locale from that made every cold start of a non-English
+     * install switch to English and then back, recreating the activity twice.
+     */
+    val storedLanguage: Flow<AppLanguage> = settingsRepository.observeSettings()
+        .map { it.languageOverride }
+        .distinctUntilChanged()
 
     private val _isDndAccessGranted = MutableStateFlow(notificationManager.isNotificationPolicyAccessGranted)
     val isDndAccessGranted: StateFlow<Boolean> = _isDndAccessGranted.asStateFlow()

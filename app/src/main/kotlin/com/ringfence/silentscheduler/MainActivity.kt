@@ -89,9 +89,11 @@ class MainActivity : AppCompatActivity() {
             // Applying the same locale AppCompatDelegate already has in effect is a
             // no-op, so this fires harmlessly on every launch — it only actually
             // recreates the activity when the user just picked a different language
-            // (onboarding's live preview, or a change from Settings).
-            LaunchedEffect(settings.languageOverride) {
-                applyAppLocale(settings.languageOverride)
+            // (onboarding's live preview, or a change from Settings). Collected from
+            // storedLanguage, not settings.languageOverride: see its doc for why the
+            // not-yet-loaded default must never be applied.
+            LaunchedEffect(settingsViewModel) {
+                settingsViewModel.storedLanguage.collect { applyAppLocale(it) }
             }
 
             RingfenceTheme(useDarkTheme = useDarkTheme) {
@@ -106,7 +108,7 @@ class MainActivity : AppCompatActivity() {
     }
 }
 
-/** The onboarding tour's two steps, shown once (see [OnboardingViewModel.isTourCompleted]). */
+/** The onboarding tour's two steps, shown once (see [OnboardingViewModel.progress]). */
 private enum class TourStep { TEMPLATES, QUICK_SILENCE }
 
 /**
@@ -121,13 +123,11 @@ private enum class TourStep { TEMPLATES, QUICK_SILENCE }
 @Composable
 private fun RingfenceRoot() {
     val viewModel: OnboardingViewModel = hiltViewModel()
-    val isLanguageChosen by viewModel.isLanguageChosen.collectAsState()
+    val progress by viewModel.progress.collectAsState()
     val selectedLanguage by viewModel.selectedLanguage.collectAsState()
     val isDndAccessGranted by viewModel.isDndAccessGranted.collectAsState()
     val isExactAlarmGranted by viewModel.isExactAlarmGranted.collectAsState()
-    val isTourCompleted by viewModel.isTourCompleted.collectAsState()
     val isNotificationPermissionGranted by viewModel.isNotificationPermissionGranted.collectAsState()
-    val hasRequestedNotificationPermissionOnce by viewModel.hasRequestedNotificationPermissionOnce.collectAsState()
     var userDeclinedDnd by remember { mutableStateOf(false) }
     var userDeclinedExactAlarm by remember { mutableStateOf(false) }
     var tourStep by remember { mutableStateOf(TourStep.TEMPLATES) }
@@ -153,6 +153,14 @@ private fun RingfenceRoot() {
     }
 
     val context = LocalContext.current
+
+    // Nothing is decided — and nothing is drawn beyond the themed background — until
+    // the stored onboarding markers have loaded (a few milliseconds); see
+    // OnboardingViewModel.progress.
+    val loadedProgress = progress ?: return
+    val isLanguageChosen = loadedProgress.isLanguageChosen
+    val isTourCompleted = loadedProgress.isTourCompleted
+    val hasRequestedNotificationPermissionOnce = loadedProgress.hasRequestedNotificationPermissionOnce
 
     // Fires the system POST_NOTIFICATIONS prompt exactly once, as soon as the DND/
     // exact-alarm decisions are out of the way — the app's default notification style

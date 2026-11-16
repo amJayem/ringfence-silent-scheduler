@@ -18,11 +18,19 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+/** The one-time onboarding markers as stored — see [OnboardingViewModel.progress]. */
+data class OnboardingProgress(
+    val isLanguageChosen: Boolean,
+    val isTourCompleted: Boolean,
+    val hasRequestedNotificationPermissionOnce: Boolean
+)
 
 /** How long the onboarding tour's "try it now" Quick Silence demo runs before reverting. */
 const val ONBOARDING_QUICK_SILENCE_DEMO_MINUTES = 1
@@ -50,11 +58,20 @@ class OnboardingViewModel @Inject constructor(
     )
     val isExactAlarmGranted: StateFlow<Boolean> = _isExactAlarmGranted.asStateFlow()
 
-    val isTourCompleted: StateFlow<Boolean> = onboardingRepository.observeIsTourCompleted()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
-
-    val isLanguageChosen: StateFlow<Boolean> = onboardingRepository.observeHasChosenLanguage()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    /**
+     * Null until the stored values have actually been read. These used to be three
+     * separate flows that each started out as `false`, so for the first moments of
+     * every launch the UI believed nothing had been done yet: the language picker
+     * (and then the tour) flashed on screen before the Dashboard, and a user who had
+     * declined notifications could be shown the system permission prompt again.
+     */
+    val progress: StateFlow<OnboardingProgress?> = combine(
+        onboardingRepository.observeHasChosenLanguage(),
+        onboardingRepository.observeIsTourCompleted(),
+        onboardingRepository.observeHasRequestedNotificationPermission()
+    ) { languageChosen, tourCompleted, notificationRequested ->
+        OnboardingProgress(languageChosen, tourCompleted, notificationRequested)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     val selectedLanguage: StateFlow<AppLanguage> = settingsRepository.observeSettings()
         .map { it.languageOverride }
@@ -69,10 +86,6 @@ class OnboardingViewModel @Inject constructor(
             NotificationManagerCompat.from(context).areNotificationsEnabled()
     )
     val isNotificationPermissionGranted: StateFlow<Boolean> = _isNotificationPermissionGranted.asStateFlow()
-
-    val hasRequestedNotificationPermissionOnce: StateFlow<Boolean> =
-        onboardingRepository.observeHasRequestedNotificationPermission()
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     init {
         // "Tour completed" is a preference key that didn't exist before this feature —

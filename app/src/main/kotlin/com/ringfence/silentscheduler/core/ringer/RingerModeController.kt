@@ -2,6 +2,7 @@ package com.ringfence.silentscheduler.core.ringer
 
 import android.content.Context
 import android.media.AudioManager
+import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -24,11 +25,26 @@ class RingerModeController @Inject constructor(
     val currentMode: Int
         get() = audioManager.ringerMode
 
-    fun setMode(mode: Int) {
+    /**
+     * @return false if the system refused the change. Moving the ringer into or out
+     * of Silent throws a SecurityException once Do Not Disturb access has been
+     * revoked — and most callers are alarm-triggered broadcast receivers running
+     * with no UI, where an uncaught exception is a background crash rather than
+     * something the user can act on. The app's own entry screen re-checks DND access
+     * on every resume and asks for it again, so reporting failure here (instead of
+     * throwing) is what lets callers avoid claiming a silence that never happened.
+     */
+    fun setMode(mode: Int): Boolean = try {
         audioManager.ringerMode = mode
+        true
+    } catch (e: SecurityException) {
+        Log.w(TAG, "Ringer mode change refused — Do Not Disturb access is missing", e)
+        false
     }
 
-    fun silence(style: SilenceStyle) {
-        audioManager.ringerMode = style.toRingerMode()
+    fun silence(style: SilenceStyle): Boolean = setMode(style.toRingerMode())
+
+    private companion object {
+        const val TAG = "RingerModeController"
     }
 }

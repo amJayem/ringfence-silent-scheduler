@@ -1,5 +1,6 @@
 package com.ringfence.silentscheduler
 
+import com.ringfence.silentscheduler.core.navigation.openSystemSettings
 import android.Manifest
 import android.content.Intent
 import android.os.Build
@@ -191,13 +192,13 @@ private fun RingfenceRoot() {
         userDeclinedDnd -> PlaceholderScreen(stringRes = R.string.dnd_access_declined_placeholder)
         !isDndAccessGranted -> DndAccessScreen(
             onAllowClick = {
-                context.startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
+                context.openSystemSettings(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
             },
             onNotNowClick = { userDeclinedDnd = true }
         )
         !isExactAlarmGranted && !userDeclinedExactAlarm -> ExactAlarmAccessScreen(
             onAllowClick = {
-                context.startActivity(
+                context.openSystemSettings(
                     Intent(
                         Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
                         android.net.Uri.parse("package:${context.packageName}")

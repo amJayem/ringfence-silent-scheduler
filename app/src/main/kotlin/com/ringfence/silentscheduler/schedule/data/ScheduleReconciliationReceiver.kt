@@ -9,7 +9,6 @@ import com.ringfence.silentscheduler.widget.WidgetTickScheduler
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -37,7 +36,7 @@ class ScheduleReconciliationReceiver : BroadcastReceiver() {
                 // its own alarm is the one an OEM battery manager drops while a window
                 // is genuinely still active, nothing re-arms it again until the app
                 // happens to be reopened, leaving the widget's countdown stale.
-                if (silencerCoordinator.observeGlobalPriorMode().first() != null) {
+                if (silencerCoordinator.isAnyWindowActive()) {
                     widgetTickScheduler.start()
                 }
             } finally {

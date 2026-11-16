@@ -5,7 +5,10 @@ import java.time.LocalDateTime
 data class ScheduleOccurrence(
     val start: LocalDateTime,
     val end: LocalDateTime
-)
+) {
+    /** True from [start] (inclusive) up to, but not including, [end]. */
+    fun isActiveAt(now: LocalDateTime): Boolean = !start.isAfter(now) && end.isAfter(now)
+}
 
 /**
  * Pure time math for recurring schedules — no Android APIs, so it's fully

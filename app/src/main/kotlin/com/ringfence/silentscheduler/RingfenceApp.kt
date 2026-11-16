@@ -5,16 +5,12 @@ import com.ringfence.silentscheduler.core.ringer.SilencerCoordinator
 import com.ringfence.silentscheduler.quicksilence.domain.QuickSilenceRepository
 import com.ringfence.silentscheduler.schedule.data.ScheduleReconciliationScheduler
 import com.ringfence.silentscheduler.schedule.data.ScheduleTriggerHandler
-import com.ringfence.silentscheduler.schedule.domain.RecurringScheduleCalculator
-import com.ringfence.silentscheduler.schedule.domain.ScheduleRepository
 import com.ringfence.silentscheduler.widget.WidgetRefresher
 import com.ringfence.silentscheduler.widget.WidgetTickScheduler
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import java.time.LocalDateTime
 import javax.inject.Inject
 
 @HiltAndroidApp
@@ -22,9 +18,6 @@ class RingfenceApp : Application() {
 
     @Inject
     lateinit var quickSilenceRepository: QuickSilenceRepository
-
-    @Inject
-    lateinit var scheduleRepository: ScheduleRepository
 
     @Inject
     lateinit var silencerCoordinator: SilencerCoordinator
@@ -59,30 +52,22 @@ class RingfenceApp : Application() {
         CoroutineScope(Dispatchers.Default).launch {
             quickSilenceRepository.reconcileIfExpired()
             // Same fix as the line above, but per-schedule: clears any schedule's own
-            // "active" flag (and its stuck notification) left behind by a lost end
-            // alarm — see the doc comment on reconcileStaleActiveFlags for why this
-            // matters beyond just the notification.
+            // window that is still holding the ringer after a lost end alarm is ended
+            // (ringer restored, notification cleared) — see reconcileStaleActiveFlags.
             scheduleTriggerHandler.reconcileStaleActiveFlags()
-            // SilencerCoordinator's shared active-window count only reaches zero (and
-            // so only ever restores the ringer) when every window that incremented it
-            // also decrements it — a process death mid-transaction, or any other path
-            // that starts a window without going through its matching end, leaves the
-            // count stuck above zero and the phone silenced with no way back. Recompute
-            // it from what's actually true right now and correct any drift.
-            val now = LocalDateTime.now()
-            val activeScheduleCount = scheduleRepository.observeSchedules().first().count { schedule ->
-                schedule.isEnabled && schedule.repeatDays.isNotEmpty() &&
-                    RecurringScheduleCalculator.nextOccurrence(schedule, now).let { occ ->
-                        !occ.start.isAfter(now) && occ.end.isAfter(now)
-                    }
-            }
-            val quickSilenceActive = quickSilenceRepository.observeState().first().isActive
-            silencerCoordinator.reconcile(activeScheduleCount + if (quickSilenceActive) 1 else 0)
             // The widget's own minute-tick alarm (WidgetTickScheduler) doesn't survive
             // a reboot or force-stop, same as every other AlarmManager alarm in this
             // app — re-arm it here if something is still genuinely active, and redraw
             // the widget immediately in case it went stale while the process was dead.
-            if (silencerCoordinator.observeGlobalPriorMode().first() != null) {
+            //
+            // Deliberately no separate "recount the active windows" step here: an
+            // earlier version recomputed a stored counter from the clock at this
+            // point, and when the process had been started *by* a schedule's own
+            // start alarm that recount raced the alarm's handler, counted the window
+            // twice, and left the phone silent after the window ended. The count is
+            // now derived from the per-window claims themselves (see SilencerState),
+            // which the two reconcile calls above already keep truthful.
+            if (silencerCoordinator.isAnyWindowActive()) {
                 widgetTickScheduler.start()
             }
             widgetRefresher.refresh()

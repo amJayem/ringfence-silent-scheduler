@@ -125,8 +125,16 @@ class QuickSilenceRepositoryImpl @Inject constructor(
         val prefs = dataStore.data.first()
         val isActive = prefs[Keys.IS_ACTIVE] ?: false
         val endTime = prefs[Keys.END_TIME] ?: 0L
-        if (isActive && endTime <= System.currentTimeMillis()) {
+        if (!isActive) return
+        if (endTime <= System.currentTimeMillis()) {
             revertSilence()
+        } else {
+            // Still running: make sure its revert alarm exists. A reboot, force-stop
+            // or app update clears it while the session itself stays marked active,
+            // and nothing else re-arms it — the phone then stayed silent past the
+            // end time until the app happened to be opened. Re-setting an alarm
+            // that is still pending just replaces it with an identical one.
+            alarmScheduler.scheduleRevert(endTime)
         }
     }
 }

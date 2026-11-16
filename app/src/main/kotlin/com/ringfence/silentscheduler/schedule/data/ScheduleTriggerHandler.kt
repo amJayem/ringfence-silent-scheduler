@@ -3,6 +3,8 @@ package com.ringfence.silentscheduler.schedule.data
 import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
 import com.ringfence.silentscheduler.core.notification.SilenceEndAction
 import com.ringfence.silentscheduler.core.notification.SilenceNotifier
 import com.ringfence.silentscheduler.core.ringer.RevertPolicy
@@ -12,20 +14,22 @@ import com.ringfence.silentscheduler.core.ringer.WindowEndResult
 import com.ringfence.silentscheduler.core.ringer.toFriendlyRingerModeName
 import com.ringfence.silentscheduler.schedule.domain.RecurringScheduleCalculator
 import com.ringfence.silentscheduler.schedule.domain.Schedule
+import com.ringfence.silentscheduler.schedule.domain.ScheduleOccurrence
 import com.ringfence.silentscheduler.settings.domain.SettingsRepository
 import com.ringfence.silentscheduler.widget.WidgetRefresher
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import java.time.LocalDateTime
 import java.time.ZoneId
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Shared by [ScheduleTriggerReceiver] (fired by AlarmManager at the natural end
- * time, passing "now" as the re-arm reference), the Dashboard's manual "End
- * silence now" action (which must pass the occurrence's own natural end time
- * instead — see [ScheduleAlarmScheduler.scheduleNextOccurrence]), and
- * [SchedulingScheduleRepository] (disabling/deleting a currently-active schedule).
+ * Shared by [ScheduleTriggerReceiver] (fired by AlarmManager at a window's start and
+ * natural end), the manual "End silence" actions on the Dashboard, widget and
+ * notification ([endEarly]), and [SchedulingScheduleRepository] (reconciliation, and
+ * disabling/deleting a currently-active schedule).
  *
  * Depends on the concrete [ScheduleRepositoryImpl], not the [com.ringfence.silentscheduler.schedule.domain.ScheduleRepository]
  * interface — that interface resolves to [SchedulingScheduleRepository], which itself
@@ -68,9 +72,9 @@ class ScheduleTriggerHandler @Inject constructor(
             return
         }
         val now = LocalDateTime.now()
-        val occurrence = RecurringScheduleCalculator.nextOccurrence(schedule, now)
+        val occurrence = occurrenceFor(schedule, now)
         if (!occurrence.isActiveAt(now)) {
-            Log.i(TAG, "START $scheduleId: not inside a window right now — not silencing")
+            Log.i(TAG, "START $scheduleId: not inside a window right now (or the user ended it early) — not silencing")
             return
         }
         val notificationStyle = settingsRepository.observeSettings().first().notificationStyle
@@ -89,21 +93,108 @@ class ScheduleTriggerHandler @Inject constructor(
         widgetRefresher.refresh()
     }
 
-    suspend fun handleEnd(scheduleId: String, referenceTimeForRearm: LocalDateTime) {
+    /**
+     * The window's own end: fired by AlarmManager at its natural end time, and by the
+     * periodic reconciliation for any schedule that isn't inside a window. Ends the
+     * window if it was still active and arms the next occurrence either way.
+     */
+    suspend fun handleNaturalEnd(scheduleId: String) {
         val schedule = repository.observeSchedules().first().find { it.id == scheduleId }
+        val now = LocalDateTime.now()
+        val reference = effectiveReference(scheduleId, now)
+        if (schedule != null && schedule.isArmable() &&
+            RecurringScheduleCalculator.nextOccurrence(schedule, reference).isActiveAt(now)
+        ) {
+            // An end alarm armed for a time that no longer matches the clock (the time
+            // zone or system time changed after it was set): the window is genuinely
+            // still running, so keep silencing and just re-arm its real end.
+            Log.i(TAG, "END $scheduleId: window is still in progress, re-arming instead of ending")
+            alarmScheduler.scheduleNextOccurrence(schedule, reference)
+            return
+        }
+        finishAndRearm(scheduleId, schedule, reference)
+    }
+
+    /**
+     * The user ended this schedule's silence themselves (Dashboard button, widget, or
+     * the notification's "End silence" action).
+     *
+     * If the schedule is inside a window right now, that occurrence's natural end is
+     * remembered (see [observeEndedEarly]) so the rest of it counts as over everywhere
+     * — otherwise the next reconciliation pass would see "enabled schedule, inside its
+     * window, not silencing" and treat it as a missed start. The marker is written
+     * *before* the window is released so no such pass can slip in between. If it isn't
+     * inside a window (a stale notification tapped after the fact), nothing is
+     * skipped: the next occurrence still runs normally.
+     */
+    suspend fun endEarly(scheduleId: String) {
+        val schedule = repository.observeSchedules().first().find { it.id == scheduleId }
+        val now = LocalDateTime.now()
+        var reference = effectiveReference(scheduleId, now)
+        if (schedule != null && schedule.isArmable()) {
+            val occurrence = RecurringScheduleCalculator.nextOccurrence(schedule, reference)
+            if (occurrence.isActiveAt(now)) {
+                reference = occurrence.end
+                preferencesDataStore.edit { prefs -> prefs[endedEarlyKey(scheduleId)] = reference.toString() }
+            }
+        }
+        finishAndRearm(scheduleId, schedule, reference)
+    }
+
+    private suspend fun finishAndRearm(scheduleId: String, schedule: Schedule?, referenceTimeForRearm: LocalDateTime) {
         endWindow(scheduleId, schedule)
 
         // Cancels any still-pending natural end alarm for today's occurrence — matters
         // for the manual early-end path, where that alarm hasn't fired yet.
         alarmScheduler.cancelOccurrence(scheduleId)
 
-        if (schedule != null && schedule.isEnabled) {
+        if (schedule != null && schedule.isArmable()) {
             alarmScheduler.scheduleNextOccurrence(schedule, referenceTimeForRearm)
         } else {
             Log.i(TAG, "END $scheduleId: schedule missing or disabled, not re-arming")
         }
         widgetRefresher.refresh()
     }
+
+    /**
+     * For each schedule the user ended early: the natural end of the occurrence they
+     * ended. Pass the entry for a schedule to [RecurringScheduleCalculator.nextOccurrence]
+     * wherever "is it active now / when is it next" is derived from the clock.
+     * Entries whose time has passed are harmless (they no longer skip anything) and
+     * are removed the next time the schedule is saved, toggled or deleted.
+     */
+    fun observeEndedEarly(): Flow<Map<String, LocalDateTime>> = preferencesDataStore.data.map { prefs ->
+        prefs.asMap().mapNotNull { (key, value) ->
+            if (!key.name.startsWith(ENDED_EARLY_PREFIX) || value !is String) return@mapNotNull null
+            val until = runCatching { LocalDateTime.parse(value) }.getOrNull() ?: return@mapNotNull null
+            key.name.removePrefix(ENDED_EARLY_PREFIX) to until
+        }.toMap()
+    }
+
+    /** This schedule's current-or-next occurrence, skipping one the user ended early. */
+    suspend fun occurrenceFor(schedule: Schedule, now: LocalDateTime): ScheduleOccurrence =
+        RecurringScheduleCalculator.nextOccurrence(schedule, effectiveReference(schedule.id, now))
+
+    /**
+     * Forgets an early end. Called when the schedule is saved, re-enabled, disabled
+     * or deleted: the marker describes one occurrence of the schedule *as it was*, and
+     * must not go on suppressing a window whose times the user has since changed.
+     */
+    suspend fun clearEndedEarly(scheduleId: String) {
+        val key = endedEarlyKey(scheduleId)
+        if (preferencesDataStore.data.first().contains(key)) {
+            preferencesDataStore.edit { prefs -> prefs.remove(key) }
+        }
+    }
+
+    private suspend fun effectiveReference(scheduleId: String, now: LocalDateTime): LocalDateTime {
+        val until = observeEndedEarly().first()[scheduleId]
+        return if (until != null && until.isAfter(now)) until else now
+    }
+
+    private fun Schedule.isArmable() = isEnabled && repeatDays.isNotEmpty()
+
+    private fun endedEarlyKey(scheduleId: String) = stringPreferencesKey(ENDED_EARLY_PREFIX + scheduleId)
 
     /**
      * Ends this schedule's window early without touching alarms or scheduling a next
@@ -189,5 +280,6 @@ class ScheduleTriggerHandler @Inject constructor(
     private companion object {
         const val TAG = "ScheduleTriggerHandler"
         const val FALLBACK_LABEL = "Schedule"
+        const val ENDED_EARLY_PREFIX = "schedule_ended_early_until_"
     }
 }

@@ -8,7 +8,6 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import java.time.LocalDateTime
 import javax.inject.Inject
 
 /** Thin AlarmManager entry point — all the actual logic lives in [ScheduleTriggerHandler]. */
@@ -27,7 +26,7 @@ class ScheduleTriggerReceiver : BroadcastReceiver() {
             try {
                 when (action) {
                     ACTION_START -> handler.handleStart(scheduleId)
-                    ACTION_END -> handler.handleEnd(scheduleId, LocalDateTime.now())
+                    ACTION_END -> handler.handleNaturalEnd(scheduleId)
                 }
             } finally {
                 pendingResult.finish()

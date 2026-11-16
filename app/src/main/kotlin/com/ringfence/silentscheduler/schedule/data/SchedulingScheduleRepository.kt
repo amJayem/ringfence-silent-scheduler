@@ -44,17 +44,19 @@ class SchedulingScheduleRepository @Inject constructor(
         delegate.observeSchedules().first()
             .filter { it.isEnabled && it.repeatDays.isNotEmpty() }
             .forEach { schedule ->
-                if (RecurringScheduleCalculator.nextOccurrence(schedule, now).isActiveAt(now)) {
+                // occurrenceFor (not the raw calculator): a window the user ended early
+                // must not be mistaken for a missed start and silenced again.
+                if (triggerHandler.occurrenceFor(schedule, now).isActiveAt(now)) {
                     // Mid-window right now: re-arm this occurrence's end alarm and make
                     // sure it's actually silencing (a no-op if a lost start alarm isn't
                     // actually this schedule's problem today).
                     alarmScheduler.scheduleNextOccurrence(schedule)
                     triggerHandler.handleStart(schedule.id)
                 } else {
-                    // Not in a window right now — handleEnd reverts if this schedule was
+                    // Not in a window right now — this reverts if the schedule was
                     // still tracked active from a past window (the stuck-silent case)
                     // and re-arms the real next occurrence either way.
-                    triggerHandler.handleEnd(schedule.id, now)
+                    triggerHandler.handleNaturalEnd(schedule.id)
                 }
             }
     }
@@ -92,6 +94,9 @@ class SchedulingScheduleRepository @Inject constructor(
             return
         }
 
+        // Saving or re-enabling a schedule is the user saying "apply this as it is
+        // now" — an earlier "End silence now" on its previous shape no longer applies.
+        triggerHandler.clearEndedEarly(schedule.id)
         alarmScheduler.scheduleNextOccurrence(schedule)
 
         val now = LocalDateTime.now()
@@ -120,5 +125,6 @@ class SchedulingScheduleRepository @Inject constructor(
     private suspend fun disable(scheduleId: String) {
         alarmScheduler.cancelOccurrence(scheduleId)
         triggerHandler.revertIfCurrentlySilencing(scheduleId)
+        triggerHandler.clearEndedEarly(scheduleId)
     }
 }

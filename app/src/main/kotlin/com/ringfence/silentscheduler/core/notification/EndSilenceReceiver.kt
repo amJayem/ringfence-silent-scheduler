@@ -5,14 +5,10 @@ import android.content.Context
 import android.content.Intent
 import com.ringfence.silentscheduler.quicksilence.domain.QuickSilenceRepository
 import com.ringfence.silentscheduler.schedule.data.ScheduleTriggerHandler
-import com.ringfence.silentscheduler.schedule.domain.RecurringScheduleCalculator
-import com.ringfence.silentscheduler.schedule.domain.ScheduleRepository
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import java.time.LocalDateTime
 import javax.inject.Inject
 
 /**
@@ -27,9 +23,6 @@ class EndSilenceReceiver : BroadcastReceiver() {
     lateinit var quickSilenceRepository: QuickSilenceRepository
 
     @Inject
-    lateinit var scheduleRepository: ScheduleRepository
-
-    @Inject
     lateinit var triggerHandler: ScheduleTriggerHandler
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -41,14 +34,7 @@ class EndSilenceReceiver : BroadcastReceiver() {
                     ACTION_END_QUICK_SILENCE -> quickSilenceRepository.revertSilence()
                     ACTION_END_SCHEDULE -> {
                         val scheduleId = intent.getStringExtra(EXTRA_SCHEDULE_ID) ?: return@launch
-                        val schedule = scheduleRepository.observeSchedules().first().find { it.id == scheduleId }
-                        // The occurrence's own natural end, not "now" — matches the
-                        // Dashboard's manual End button (see ScheduleTriggerHandler.handleEnd's
-                        // own doc on why the two reference times must differ).
-                        val referenceEnd = schedule
-                            ?.let { RecurringScheduleCalculator.nextOccurrence(it, LocalDateTime.now()).end }
-                            ?: LocalDateTime.now()
-                        triggerHandler.handleEnd(scheduleId, referenceEnd)
+                        triggerHandler.endEarly(scheduleId)
                     }
                 }
             } finally {

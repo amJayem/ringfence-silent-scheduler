@@ -2,7 +2,6 @@ package com.ringfence.silentscheduler.widget
 
 import com.ringfence.silentscheduler.quicksilence.domain.QuickSilenceRepository
 import com.ringfence.silentscheduler.schedule.data.ScheduleTriggerHandler
-import com.ringfence.silentscheduler.schedule.domain.RecurringScheduleCalculator
 import com.ringfence.silentscheduler.schedule.domain.Schedule
 import com.ringfence.silentscheduler.schedule.domain.ScheduleRepository
 import com.ringfence.silentscheduler.settings.domain.SettingsRepository
@@ -48,16 +47,14 @@ class WidgetActionHandler @Inject constructor(
             return
         }
         val activeSchedule = findActiveSchedule() ?: return
-        val occ = RecurringScheduleCalculator.nextOccurrence(activeSchedule, LocalDateTime.now())
-        triggerHandler.handleEnd(activeSchedule.id, occ.end)
+        triggerHandler.endEarly(activeSchedule.id)
     }
 
     private suspend fun findActiveSchedule(): Schedule? {
         val now = LocalDateTime.now()
         return scheduleRepository.observeSchedules().first().firstOrNull { schedule ->
             if (!schedule.isEnabled || schedule.repeatDays.isEmpty()) return@firstOrNull false
-            val occ = RecurringScheduleCalculator.nextOccurrence(schedule, now)
-            !occ.start.isAfter(now) && occ.end.isAfter(now)
+            triggerHandler.occurrenceFor(schedule, now).isActiveAt(now)
         }
     }
 }

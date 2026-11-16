@@ -48,4 +48,18 @@ object RecurringScheduleCalculator {
 
         error("No upcoming occurrence found within 8 days for schedule ${schedule.id}")
     }
+
+    /**
+     * Same as [nextOccurrence], but skips an occurrence the user ended early.
+     *
+     * @param endedEarlyUntil the natural end of the occurrence the user manually ended
+     * (null if none). While that moment is still in the future the occurrence is
+     * treated as already over, so the result is the one after it. Without this, every
+     * "is this schedule in a window right now?" check kept answering yes for the rest
+     * of a window the user had explicitly ended — the Dashboard and widget kept
+     * showing it as silent, and the periodic background reconciliation re-silenced
+     * the phone a few minutes after the user had un-silenced it.
+     */
+    fun nextOccurrence(schedule: Schedule, now: LocalDateTime, endedEarlyUntil: LocalDateTime?): ScheduleOccurrence =
+        nextOccurrence(schedule, if (endedEarlyUntil != null && endedEarlyUntil.isAfter(now)) endedEarlyUntil else now)
 }

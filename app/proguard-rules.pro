@@ -8,3 +8,12 @@
 -keepclassmembers class * extends com.google.protobuf.GeneratedMessageLite {
     <fields>;
 }
+
+# Drop verbose/debug/info logging from release builds. These lines trace every
+# schedule trigger (including the user's own schedule labels) to logcat, which is
+# useful while developing and has no business shipping. Warnings and errors are kept.
+-assumenosideeffects class android.util.Log {
+    public static int v(...);
+    public static int d(...);
+    public static int i(...);
+}

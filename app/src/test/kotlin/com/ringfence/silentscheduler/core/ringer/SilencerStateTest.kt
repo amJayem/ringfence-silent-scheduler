@@ -82,6 +82,49 @@ class SilencerStateTest {
     }
 
     @Test
+    fun `undoEnd restores the claim and prior mode a refused ringer change would otherwise strand`() {
+        val prefs = mutablePreferencesOf()
+        SilencerState.start(prefs, scheduleA) { AudioManager.RINGER_MODE_VIBRATE }
+
+        // Mirrors what the coordinator captures before calling end(): the value
+        // GLOBAL_PRIOR_MODE held just before end() clears it.
+        val priorModeForRollback = prefs[SilencerState.GLOBAL_PRIOR_MODE]
+        assertEquals(
+            WindowEndResult.Restored(AudioManager.RINGER_MODE_VIBRATE),
+            SilencerState.end(prefs, scheduleA, RevertPolicy.RESTORE)
+        )
+        // At this point the system has refused the actual ringer change — nothing
+        // left in prefs says this window is still silencing or what to restore to.
+        assertEquals(0, SilencerState.activeWindowCount(prefs))
+        assertNull(prefs[SilencerState.GLOBAL_PRIOR_MODE])
+
+        SilencerState.undoEnd(prefs, scheduleA, priorModeForRollback)
+
+        assertEquals(1, SilencerState.activeWindowCount(prefs))
+        assertEquals(AudioManager.RINGER_MODE_VIBRATE, prefs[SilencerState.GLOBAL_PRIOR_MODE])
+        // A later retry of the same end() now restores the right mode again, not RINGER_MODE_NORMAL.
+        assertEquals(
+            WindowEndResult.Restored(AudioManager.RINGER_MODE_VIBRATE),
+            SilencerState.end(prefs, scheduleA, RevertPolicy.RESTORE)
+        )
+    }
+
+    @Test
+    fun `undoEnd on an overlapping window restores only its own claim, not the one still active`() {
+        val prefs = mutablePreferencesOf()
+        SilencerState.start(prefs, scheduleA) { AudioManager.RINGER_MODE_VIBRATE }
+        SilencerState.start(prefs, scheduleB) { error("not idle") }
+
+        // scheduleB ends first while A is still active — a StillSilenced result never
+        // reaches undoEnd in practice (nothing to roll back when the ringer was never
+        // touched), but undoEnd itself must not assume it is the only active window.
+        SilencerState.end(prefs, scheduleB, RevertPolicy.RESTORE)
+        SilencerState.undoEnd(prefs, scheduleB, null)
+
+        assertEquals(setOf("a", "b"), SilencerState.activeScheduleIds(prefs))
+    }
+
+    @Test
     fun `a new window after everything ended captures a fresh prior mode`() {
         val prefs = mutablePreferencesOf()
         SilencerState.start(prefs, scheduleA) { AudioManager.RINGER_MODE_VIBRATE }

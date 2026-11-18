@@ -92,6 +92,21 @@ internal object SilencerState {
             }
         )
     }
+
+    /**
+     * Undoes a prior [end] call whose [WindowEndResult.Restored] turned out not to
+     * actually happen — the system refused the ringer change (DND access revoked
+     * mid-window). [end] already removed the claim and [GLOBAL_PRIOR_MODE] by the
+     * time that failure is known, which would otherwise strand the window with no
+     * state left for a later retry to restore the right mode from. [priorMode] must
+     * be the value [GLOBAL_PRIOR_MODE] held *before* that [end] call (the caller has
+     * to capture it first, in the same transaction, since by the time [end] returns
+     * it is already gone).
+     */
+    fun undoEnd(prefs: MutablePreferences, claim: Preferences.Key<Boolean>, priorMode: Int?) {
+        prefs[claim] = true
+        if (priorMode != null) prefs[GLOBAL_PRIOR_MODE] = priorMode
+    }
 }
 
 /**
@@ -163,13 +178,28 @@ class SilencerCoordinator @Inject constructor(
      */
     suspend fun onWindowEnd(claim: Preferences.Key<Boolean>, policy: RevertPolicy): WindowEndResult {
         var result: WindowEndResult = WindowEndResult.NotActive
-        dataStore.edit { prefs -> result = SilencerState.end(prefs, claim, policy) }
+        // Captured in the same transaction, before SilencerState.end() clears it —
+        // needed below to undo the end if the ringer change ends up refused, since by
+        // then this is the only place that still knows what to put back.
+        var priorModeForRollback: Int? = null
+        dataStore.edit { prefs ->
+            priorModeForRollback = prefs[SilencerState.GLOBAL_PRIOR_MODE]
+            result = SilencerState.end(prefs, claim, policy)
+        }
         val restored = result as? WindowEndResult.Restored ?: return result
-        // Nothing is silencing anymore — stop waking the device every minute for a
-        // countdown that no longer exists.
-        widgetTickScheduler.stop()
-        // If the system refuses the change (DND access revoked mid-window) the phone
-        // is still silent — don't let the caller announce that sound is back.
-        return if (ringerModeController.setMode(restored.mode)) restored else WindowEndResult.StillSilenced
+        if (ringerModeController.setMode(restored.mode)) {
+            // Nothing is silencing anymore — stop waking the device every minute for
+            // a countdown that no longer exists.
+            widgetTickScheduler.stop()
+            return restored
+        }
+        // The system refused the change (DND access revoked mid-window): the ringer
+        // never actually changed, so the phone is still silenced — but the claim and
+        // prior mode this call just cleared are already gone, and nothing else still
+        // holds them. Put both back (mirrors onWindowStart's own rollback-on-failure)
+        // instead of leaving the window with no state left to ever retry the restore,
+        // and leave the tick running since there is still something to count down.
+        dataStore.edit { prefs -> SilencerState.undoEnd(prefs, claim, priorModeForRollback) }
+        return WindowEndResult.StillSilenced
     }
 }

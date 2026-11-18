@@ -8,6 +8,7 @@ import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -42,9 +43,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -62,9 +65,11 @@ import com.ringfence.silentscheduler.core.theme.BackgroundLight
 import com.ringfence.silentscheduler.core.theme.LocalOnSurfaceFaint
 import com.ringfence.silentscheduler.core.theme.NumeralFontFamily
 import com.ringfence.silentscheduler.core.theme.ThemeOverride
+import com.ringfence.silentscheduler.core.ui.PillSwitch
 import com.ringfence.silentscheduler.core.ui.RadioOptionRow
 import com.ringfence.silentscheduler.core.ui.SegmentedControl
 import com.ringfence.silentscheduler.settings.domain.AVAILABLE_DURATION_MINUTES
+import com.ringfence.silentscheduler.settings.domain.ReminderUnit
 
 /**
  * Build-order step 8. Matches the dark-mode design in DESIGN_NOTES.md — light-mode
@@ -257,6 +262,33 @@ fun SettingsScreen(
 
         Spacer(Modifier.height(20.dp))
 
+        SettingsSection(title = stringResource(R.string.settings_section_review_reminder)) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.settings_review_reminder_toggle_title), style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        stringResource(R.string.settings_review_reminder_toggle_subtitle),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                PillSwitch(
+                    checked = settings.reviewReminderEnabled,
+                    onCheckedChange = viewModel::setReviewReminderEnabled
+                )
+            }
+            if (settings.reviewReminderEnabled) {
+                Spacer(Modifier.height(16.dp))
+                ReviewReminderIntervalPicker(
+                    amount = settings.reviewReminderAmount,
+                    unit = settings.reviewReminderUnit,
+                    onIntervalChange = viewModel::setReviewReminderInterval
+                )
+            }
+        }
+
+        Spacer(Modifier.height(20.dp))
+
         Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface) {
             Row(
                 modifier = Modifier
@@ -324,6 +356,123 @@ private fun SettingsSection(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+}
+
+private const val PRESET_REMINDER_AMOUNT = 1
+private val PRESET_REMINDER_UNIT = ReminderUnit.MONTHS
+private const val MIN_REMINDER_AMOUNT = 1
+private const val MAX_REMINDER_AMOUNT = 24
+private const val DEFAULT_CUSTOM_AMOUNT = 1
+private val DEFAULT_CUSTOM_UNIT = ReminderUnit.DAYS
+
+/**
+ * The "1 month" quick preset vs. a Custom amount+unit stepper — which chip reads as
+ * selected is derived from the stored amount/unit themselves (not separate UI-only
+ * state), so switching back to "1 month" after using Custom just writes 1/MONTHS
+ * again rather than needing its own mode flag to reconcile with storage.
+ */
+@Composable
+private fun ReviewReminderIntervalPicker(
+    amount: Int,
+    unit: ReminderUnit,
+    onIntervalChange: (Int, ReminderUnit) -> Unit
+) {
+    val isPreset = amount == PRESET_REMINDER_AMOUNT && unit == PRESET_REMINDER_UNIT
+    Column {
+        Text(
+            stringResource(R.string.settings_review_reminder_every_label),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ReminderChip(
+                label = stringResource(R.string.settings_review_reminder_preset_1_month),
+                selected = isPreset,
+                onClick = { onIntervalChange(PRESET_REMINDER_AMOUNT, PRESET_REMINDER_UNIT) }
+            )
+            ReminderChip(
+                label = stringResource(R.string.settings_review_reminder_custom),
+                selected = !isPreset,
+                // Writing back the exact same (1, MONTHS) the preset already holds
+                // wouldn't actually select this chip — isPreset is derived from the
+                // stored amount/unit, so starting from a value distinguishable from
+                // the preset (1 day) is what makes this chip "stick" the first time
+                // it's tapped while "1 month" is still selected.
+                onClick = { if (isPreset) onIntervalChange(DEFAULT_CUSTOM_AMOUNT, DEFAULT_CUSTOM_UNIT) }
+            )
+        }
+        if (!isPreset) {
+            Spacer(Modifier.height(12.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                ReminderStepperButton(
+                    iconRes = R.drawable.ic_minus,
+                    onClick = { onIntervalChange((amount - 1).coerceAtLeast(MIN_REMINDER_AMOUNT), unit) }
+                )
+                Text(
+                    amount.toString(),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.width(32.dp),
+                    textAlign = TextAlign.Center
+                )
+                ReminderStepperButton(
+                    iconRes = R.drawable.ic_plus,
+                    onClick = { onIntervalChange((amount + 1).coerceAtMost(MAX_REMINDER_AMOUNT), unit) }
+                )
+            }
+            // On its own full-width row, not squeezed beside the stepper — "Months"
+            // wrapped and overlapped the row below it when this shared a row with
+            // the −/amount/+ stepper, since three segments plus that stepper's own
+            // width left too little room at normal text size.
+            Spacer(Modifier.height(10.dp))
+            SegmentedControl(
+                options = listOf(ReminderUnit.DAYS, ReminderUnit.WEEKS, ReminderUnit.MONTHS),
+                selected = unit,
+                labelFor = { u ->
+                    when (u) {
+                        ReminderUnit.DAYS -> stringResource(R.string.settings_review_reminder_unit_days)
+                        ReminderUnit.WEEKS -> stringResource(R.string.settings_review_reminder_unit_weeks)
+                        ReminderUnit.MONTHS -> stringResource(R.string.settings_review_reminder_unit_months)
+                    }
+                },
+                onSelect = { newUnit -> onIntervalChange(amount, newUnit) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun ReminderChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(percent = 50)
+    Surface(
+        shape = shape,
+        color = if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
+        border = BorderStroke(
+            1.dp,
+            if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+        ),
+        modifier = Modifier.clip(shape).clickable(onClick = onClick)
+    ) {
+        Text(
+            label,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            style = MaterialTheme.typography.labelLarge,
+            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+        )
+    }
+}
+
+@Composable
+private fun ReminderStepperButton(iconRes: Int, onClick: () -> Unit) {
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier
+            .size(38.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Icon(painterResource(iconRes), contentDescription = null, modifier = Modifier.size(16.dp))
     }
 }
 

@@ -2,6 +2,7 @@ package com.ringfence.silentscheduler.settings.data
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -13,6 +14,8 @@ import com.ringfence.silentscheduler.core.ringer.SilenceStyle
 import com.ringfence.silentscheduler.core.theme.ThemeOverride
 import com.ringfence.silentscheduler.settings.domain.AppSettings
 import com.ringfence.silentscheduler.settings.domain.DEFAULT_DURATION_MINUTES
+import com.ringfence.silentscheduler.settings.domain.DEFAULT_REVIEW_REMINDER_AMOUNT
+import com.ringfence.silentscheduler.settings.domain.ReminderUnit
 import com.ringfence.silentscheduler.settings.domain.SettingsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -26,6 +29,9 @@ private object Keys {
     val NOTIFICATION_STYLE = stringPreferencesKey("settings_notification_style")
     val THEME_OVERRIDE = stringPreferencesKey("settings_theme_override")
     val LANGUAGE_OVERRIDE = stringPreferencesKey("settings_language_override")
+    val REVIEW_REMINDER_ENABLED = booleanPreferencesKey("settings_review_reminder_enabled")
+    val REVIEW_REMINDER_AMOUNT = intPreferencesKey("settings_review_reminder_amount")
+    val REVIEW_REMINDER_UNIT = stringPreferencesKey("settings_review_reminder_unit")
 }
 
 @Singleton
@@ -40,7 +46,10 @@ class SettingsRepositoryImpl @Inject constructor(
             revertPolicy = prefs[Keys.REVERT_POLICY].toEnumOrDefault(RevertPolicy.RESTORE),
             notificationStyle = prefs[Keys.NOTIFICATION_STYLE].toEnumOrDefault(NotificationStyle.BANNER),
             themeOverride = prefs[Keys.THEME_OVERRIDE].toEnumOrDefault(ThemeOverride.SYSTEM),
-            languageOverride = prefs[Keys.LANGUAGE_OVERRIDE].toEnumOrDefault(AppLanguage.ENGLISH)
+            languageOverride = prefs[Keys.LANGUAGE_OVERRIDE].toEnumOrDefault(AppLanguage.ENGLISH),
+            reviewReminderEnabled = prefs[Keys.REVIEW_REMINDER_ENABLED] ?: false,
+            reviewReminderAmount = prefs[Keys.REVIEW_REMINDER_AMOUNT] ?: DEFAULT_REVIEW_REMINDER_AMOUNT,
+            reviewReminderUnit = prefs[Keys.REVIEW_REMINDER_UNIT].toEnumOrDefault(ReminderUnit.MONTHS)
         )
     }
 
@@ -66,5 +75,16 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setLanguageOverride(language: AppLanguage) {
         dataStore.edit { it[Keys.LANGUAGE_OVERRIDE] = language.name }
+    }
+
+    override suspend fun setReviewReminderEnabled(enabled: Boolean) {
+        dataStore.edit { it[Keys.REVIEW_REMINDER_ENABLED] = enabled }
+    }
+
+    override suspend fun setReviewReminderInterval(amount: Int, unit: ReminderUnit) {
+        dataStore.edit { prefs ->
+            prefs[Keys.REVIEW_REMINDER_AMOUNT] = amount
+            prefs[Keys.REVIEW_REMINDER_UNIT] = unit.name
+        }
     }
 }

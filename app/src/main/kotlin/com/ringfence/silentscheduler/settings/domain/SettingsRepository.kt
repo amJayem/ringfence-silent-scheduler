@@ -15,4 +15,6 @@ interface SettingsRepository {
     suspend fun setNotificationStyle(style: NotificationStyle)
     suspend fun setThemeOverride(override: ThemeOverride)
     suspend fun setLanguageOverride(language: AppLanguage)
+    suspend fun setReviewReminderEnabled(enabled: Boolean)
+    suspend fun setReviewReminderInterval(amount: Int, unit: ReminderUnit)
 }

@@ -10,6 +10,7 @@ import com.ringfence.silentscheduler.core.ringer.RevertPolicy
 import com.ringfence.silentscheduler.core.ringer.SilenceStyle
 import com.ringfence.silentscheduler.core.theme.ThemeOverride
 import com.ringfence.silentscheduler.settings.domain.AppSettings
+import com.ringfence.silentscheduler.settings.domain.ReminderUnit
 import com.ringfence.silentscheduler.settings.domain.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -76,5 +77,13 @@ class SettingsViewModel @Inject constructor(
 
     fun setLanguageOverride(language: AppLanguage) {
         viewModelScope.launch { settingsRepository.setLanguageOverride(language) }
+    }
+
+    fun setReviewReminderEnabled(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setReviewReminderEnabled(enabled) }
+    }
+
+    fun setReviewReminderInterval(amount: Int, unit: ReminderUnit) {
+        viewModelScope.launch { settingsRepository.setReviewReminderInterval(amount, unit) }
     }
 }

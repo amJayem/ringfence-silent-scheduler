@@ -1,15 +1,19 @@
 package com.ringfence.silentscheduler
 
 import android.app.Application
+import com.ringfence.silentscheduler.core.reminder.ReviewReminderScheduler
 import com.ringfence.silentscheduler.core.ringer.SilencerCoordinator
 import com.ringfence.silentscheduler.quicksilence.domain.QuickSilenceRepository
 import com.ringfence.silentscheduler.schedule.data.ScheduleReconciliationScheduler
 import com.ringfence.silentscheduler.schedule.data.ScheduleTriggerHandler
+import com.ringfence.silentscheduler.settings.domain.SettingsRepository
 import com.ringfence.silentscheduler.widget.WidgetRefresher
 import com.ringfence.silentscheduler.widget.WidgetTickScheduler
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -34,6 +38,12 @@ class RingfenceApp : Application() {
     @Inject
     lateinit var scheduleReconciliationScheduler: ScheduleReconciliationScheduler
 
+    @Inject
+    lateinit var settingsRepository: SettingsRepository
+
+    @Inject
+    lateinit var reviewReminderScheduler: ReviewReminderScheduler
+
     override fun onCreate() {
         super.onCreate()
         // Unconditional and independent of anything being active right now — unlike
@@ -44,6 +54,21 @@ class RingfenceApp : Application() {
         // would otherwise skip an entire window with no DND, no notification, and no
         // widget indicator until the app happened to be reopened.
         scheduleReconciliationScheduler.start()
+        // Reactive, not a one-time check: re-arms (or cancels) the "review your
+        // schedules" reminder whenever its enabled/amount/unit settings actually
+        // change, and once on every process start (a collector's first emission is
+        // the Flow's current value) — which is also what re-arms it after a reboot,
+        // since BootRescheduleReceiver firing starts this same Application first.
+        // distinctUntilChanged so merely opening Settings without touching this
+        // section never resets an already-ticking countdown.
+        CoroutineScope(Dispatchers.Default).launch {
+            settingsRepository.observeSettings()
+                .map { Triple(it.reviewReminderEnabled, it.reviewReminderAmount, it.reviewReminderUnit) }
+                .distinctUntilChanged()
+                .collect { (enabled, amount, unit) ->
+                    if (enabled) reviewReminderScheduler.scheduleNext(amount, unit) else reviewReminderScheduler.cancel()
+                }
+        }
         // "Always reverts... on next launch" (see onboarding copy): if the revert
         // alarm was lost (force-stop, Doze, reboot) while a Quick Silence session was
         // running, the phone would otherwise stay muted forever with nothing left to

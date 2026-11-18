@@ -140,6 +140,15 @@
     <string name="settings_notification_silent_log_subtitle">No alert, visible in history only</string>
     <string name="settings_notification_none_title">None</string>
     <string name="settings_notification_none_subtitle">Never notify</string>
+    <string name="settings_section_review_reminder">REVIEW REMINDER</string>
+    <string name="settings_review_reminder_toggle_title">Remind me to review my schedules</string>
+    <string name="settings_review_reminder_toggle_subtitle">A gentle nudge if your routine changes</string>
+    <string name="settings_review_reminder_every_label">Every</string>
+    <string name="settings_review_reminder_preset_1_month">1 month</string>
+    <string name="settings_review_reminder_custom">Custom</string>
+    <string name="settings_review_reminder_unit_days">Days</string>
+    <string name="settings_review_reminder_unit_weeks">Weeks</string>
+    <string name="settings_review_reminder_unit_months">Months</string>
     <string name="settings_section_language">LANGUAGE</string>
     <string name="settings_section_appearance">APPEARANCE</string>
     <string name="settings_appearance_light">Light</string>
@@ -156,6 +165,10 @@
     <string name="notification_channel_banner_desc">Notifies when a silence window starts and ends</string>
     <string name="notification_channel_silent_log_name">Silence log</string>
     <string name="notification_channel_silent_log_desc">Silent record of silence start and end, no alert</string>
+    <string name="notification_channel_review_reminder_name">Schedule review reminder</string>
+    <string name="notification_channel_review_reminder_desc">Periodic nudge to check your schedules still fit your routine</string>
+    <string name="review_reminder_notification_title">Time to check your schedules</string>
+    <string name="review_reminder_notification_body">Still fit your routine? Open Ringfence to review them.</string>
     <string name="notification_silence_started_title">Silent — %1$s</string>
     <!-- Only shown once the notification is expanded — the peek and the collapsed
     shade row show just the title ("Silent — Label"), nothing underneath it. -->

@@ -140,6 +140,15 @@
     <string name="settings_notification_silent_log_subtitle">কোনো অ্যালার্ট নেই, শুধু হিস্ট্রিতে দেখা যায়</string>
     <string name="settings_notification_none_title">কোনোটিই না</string>
     <string name="settings_notification_none_subtitle">কখনো জানাবেন না</string>
+    <string name="settings_section_review_reminder">রিভিউ রিমাইন্ডার</string>
+    <string name="settings_review_reminder_toggle_title">আমার শিডিউল রিভিউ করতে মনে করিয়ে দিন</string>
+    <string name="settings_review_reminder_toggle_subtitle">রুটিন পরিবর্তন হলে একটি ছোট্ট রিমাইন্ডার</string>
+    <string name="settings_review_reminder_every_label">প্রতি</string>
+    <string name="settings_review_reminder_preset_1_month">১ মাস</string>
+    <string name="settings_review_reminder_custom">কাস্টম</string>
+    <string name="settings_review_reminder_unit_days">দিন</string>
+    <string name="settings_review_reminder_unit_weeks">সপ্তাহ</string>
+    <string name="settings_review_reminder_unit_months">মাস</string>
     <string name="settings_section_language">ভাষা</string>
     <string name="settings_section_appearance">থিম</string>
     <string name="settings_appearance_light">লাইট</string>
@@ -156,6 +165,10 @@
     <string name="notification_channel_banner_desc">সাইলেন্স উইন্ডো শুরু ও শেষ হলে জানায়</string>
     <string name="notification_channel_silent_log_name">সাইলেন্স লগ</string>
     <string name="notification_channel_silent_log_desc">সাইলেন্স শুরু ও শেষ হওয়ার তথ্য নীরবে রেকর্ড করে, কোনো অ্যালার্ট দেয় না</string>
+    <string name="notification_channel_review_reminder_name">শিডিউল রিভিউ রিমাইন্ডার</string>
+    <string name="notification_channel_review_reminder_desc">আপনার শিডিউল রুটিনের সাথে এখনো মানানসই কিনা তা দেখার জন্য মাঝে মাঝে মনে করিয়ে দেয়</string>
+    <string name="review_reminder_notification_title">আপনার শিডিউল দেখার সময় হয়েছে</string>
+    <string name="review_reminder_notification_body">এখনো আপনার রুটিনের সাথে মানানসই? দেখতে Ringfence খুলুন।</string>
     <string name="notification_silence_started_title">সাইলেন্ট — %1$s</string>
     <!-- Only shown once the notification is expanded — the peek and the collapsed
     shade row show just the title ("সাইলেন্ট — Label"), nothing underneath it. -->

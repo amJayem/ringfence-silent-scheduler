@@ -54,16 +54,19 @@ class WidgetStateProvider @Inject constructor(
         val schedules = scheduleRepository.observeSchedules().first()
         val quickSilence = quickSilenceRepository.observeState().first()
         val settings = settingsRepository.observeSettings().first()
+        val endedEarly = scheduleTriggerHandler.observeEndedEarly().first()
         val notificationManager = context.getSystemService(NotificationManager::class.java)
         val dndAccessGranted = notificationManager?.isNotificationPolicyAccessGranted ?: false
 
         val occurrencesById = schedules
             .filter { it.isEnabled && it.repeatDays.isNotEmpty() }
-            .associate { it.id to RecurringScheduleCalculator.nextOccurrence(it, now) }
+            // Skips an occurrence the user ended early, so the widget stops showing
+            // "silent" for the rest of a window that was manually ended.
+            .associate { it.id to RecurringScheduleCalculator.nextOccurrence(it, now, endedEarly[it.id]) }
 
         val activeSchedule = schedules.firstOrNull { schedule ->
             val occ = occurrencesById[schedule.id] ?: return@firstOrNull false
-            !occ.start.isAfter(now) && occ.end.isAfter(now)
+            occ.isActiveAt(now)
         }
 
         val chips = AVAILABLE_DURATION_MINUTES.map { minutes ->

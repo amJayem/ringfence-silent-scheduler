@@ -37,23 +37,26 @@ class SchedulingScheduleRepository @Inject constructor(
     // and routing to handleStart/handleEnd (both already idempotent no-ops when
     // nothing is actually wrong) closes the same gap here.
     override suspend fun reconcileAlarms() {
+        // First: anything still holding the ringer after its window is over (including
+        // a schedule that has since been disabled or deleted) is ended properly.
+        triggerHandler.reconcileStaleActiveFlags()
         val now = LocalDateTime.now()
         delegate.observeSchedules().first()
-            .filter { it.isEnabled }
+            .filter { it.isEnabled && it.repeatDays.isNotEmpty() }
             .forEach { schedule ->
-                if (schedule.repeatDays.isEmpty()) return@forEach
-                val occurrence = RecurringScheduleCalculator.nextOccurrence(schedule, now)
-                if (!occurrence.start.isAfter(now) && occurrence.end.isAfter(now)) {
+                // occurrenceFor (not the raw calculator): a window the user ended early
+                // must not be mistaken for a missed start and silenced again.
+                if (triggerHandler.occurrenceFor(schedule, now).isActiveAt(now)) {
                     // Mid-window right now: re-arm this occurrence's end alarm and make
                     // sure it's actually silencing (a no-op if a lost start alarm isn't
                     // actually this schedule's problem today).
                     alarmScheduler.scheduleNextOccurrence(schedule)
                     triggerHandler.handleStart(schedule.id)
                 } else {
-                    // Not in a window right now — handleEnd reverts if this schedule was
+                    // Not in a window right now — this reverts if the schedule was
                     // still tracked active from a past window (the stuck-silent case)
                     // and re-arms the real next occurrence either way.
-                    triggerHandler.handleEnd(schedule.id, now)
+                    triggerHandler.handleNaturalEnd(schedule.id)
                 }
             }
     }
@@ -86,28 +89,30 @@ class SchedulingScheduleRepository @Inject constructor(
     }
 
     private suspend fun rearm(schedule: Schedule) {
-        if (!schedule.isEnabled) {
+        if (!schedule.isEnabled || schedule.repeatDays.isEmpty()) {
             disable(schedule.id)
             return
         }
-        if (schedule.repeatDays.isEmpty()) {
-            // ScheduleAlarmScheduler already logs and skips this defensively;
-            // nothing to silence synchronously either.
-            return
-        }
 
+        // Saving or re-enabling a schedule is the user saying "apply this as it is
+        // now" — an earlier "End silence now" on its previous shape no longer applies.
+        triggerHandler.clearEndedEarly(schedule.id)
         alarmScheduler.scheduleNextOccurrence(schedule)
 
-        // If the window is already in progress (re-enabling mid-window, or a
-        // brand-new schedule created to cover right now), silence immediately
-        // instead of waiting on AlarmManager's async delivery — that round trip can
-        // take a few seconds, which felt like a lag on the enable toggle.
-        // triggerHandler.handleStart is idempotent, so the real alarm firing
-        // moments later is a harmless no-op.
         val now = LocalDateTime.now()
-        val occurrence = RecurringScheduleCalculator.nextOccurrence(schedule, now)
-        if (!occurrence.start.isAfter(now) && occurrence.end.isAfter(now)) {
+        if (RecurringScheduleCalculator.nextOccurrence(schedule, now).isActiveAt(now)) {
+            // The window is already in progress (re-enabling mid-window, or a
+            // brand-new schedule created to cover right now): silence immediately
+            // instead of waiting on AlarmManager's async delivery — that round trip
+            // can take a few seconds, which felt like a lag on the enable toggle.
+            // triggerHandler.handleStart is idempotent, so the real alarm firing
+            // moments later is a harmless no-op.
             triggerHandler.handleStart(schedule.id)
+        } else {
+            // The schedule was edited while it was silencing so that "now" is no
+            // longer inside its window: the alarms above were just replaced with the
+            // new times, so the old end alarm will never fire — end it here.
+            triggerHandler.revertIfCurrentlySilencing(schedule.id)
         }
     }
 
@@ -120,5 +125,6 @@ class SchedulingScheduleRepository @Inject constructor(
     private suspend fun disable(scheduleId: String) {
         alarmScheduler.cancelOccurrence(scheduleId)
         triggerHandler.revertIfCurrentlySilencing(scheduleId)
+        triggerHandler.clearEndedEarly(scheduleId)
     }
 }

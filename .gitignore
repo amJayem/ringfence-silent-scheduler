@@ -20,3 +20,8 @@ design_handoff_silent_scheduler_android/
 # themselves unreadable (same stale-handle issue) so it can't be deleted, only
 # ignored. Safe to remove once the drive lets you.
 .git.broken/
+
+# Release signing material — never commit the upload keystore or its passwords.
+*.jks
+*.keystore
+keystore.properties

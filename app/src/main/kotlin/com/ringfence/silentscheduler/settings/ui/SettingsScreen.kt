@@ -1,5 +1,6 @@
 package com.ringfence.silentscheduler.settings.ui
 
+import com.ringfence.silentscheduler.core.navigation.openSystemSettings
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -276,7 +277,7 @@ fun SettingsScreen(
                     )
                 } else {
                     TextButton(onClick = {
-                        context.startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
+                        context.openSystemSettings(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
                     }) {
                         Text(stringResource(R.string.settings_dnd_open_settings))
                     }

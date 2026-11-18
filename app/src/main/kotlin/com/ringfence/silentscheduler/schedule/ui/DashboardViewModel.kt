@@ -149,12 +149,6 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
-    // endActiveNow() doesn't change any Schedule's stored fields (the occurrence is
-    // derived, not persisted), so repository.observeSchedules() never re-emits after
-    // it — without this, the active/idle card would only catch up on the next 30s
-    // tick instead of reflecting the tap immediately.
-    private val manualRefresh = MutableStateFlow(0)
-
     init {
         // Self-heal for a missed revert alarm (force-stop, Doze, reboot): a Quick
         // Silence session whose end time already passed but is still marked active
@@ -185,9 +179,13 @@ class DashboardViewModel @Inject constructor(
         quickSilenceRepository.observeState(),
         silencerCoordinator.observeGlobalPriorMode(),
         ticker,
-        manualRefresh
-    ) { schedules, quickSilence, globalPriorMode, _, _ ->
-        buildState(schedules, quickSilence, globalPriorMode, LocalDateTime.now())
+        // Which occurrences the user ended early. Without it an ended schedule kept
+        // being derived as "active" from the clock alone for the rest of its window;
+        // it also re-emits the moment endActiveNow() writes it, so the card reflects
+        // the tap immediately rather than on the next 30s tick.
+        triggerHandler.observeEndedEarly()
+    ) { schedules, quickSilence, globalPriorMode, _, endedEarly ->
+        buildState(schedules, quickSilence, globalPriorMode, endedEarly, LocalDateTime.now())
     }.combine(showNotificationsDisabledBanner) { state, showBanner ->
         state.copy(showNotificationsDisabledBanner = showBanner)
     }.combine(_isExactAlarmGranted) { state, isGranted ->
@@ -198,13 +196,14 @@ class DashboardViewModel @Inject constructor(
         schedules: List<Schedule>,
         quickSilence: QuickSilenceState,
         globalPriorMode: Int?,
+        endedEarly: Map<String, LocalDateTime>,
         now: LocalDateTime
     ): DashboardUiState {
         val dayLabel = now.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())
 
         val occurrencesById: Map<String, ScheduleOccurrence> = schedules
             .filter { it.isEnabled && it.repeatDays.isNotEmpty() }
-            .associate { it.id to RecurringScheduleCalculator.nextOccurrence(it, now) }
+            .associate { it.id to RecurringScheduleCalculator.nextOccurrence(it, now, endedEarly[it.id]) }
 
         val activeSchedule = schedules.firstOrNull { schedule ->
             val occ = occurrencesById[schedule.id] ?: return@firstOrNull false
@@ -359,10 +358,9 @@ class DashboardViewModel @Inject constructor(
         val active = uiState.value.active ?: return
         viewModelScope.launch {
             when (val source = active.source) {
-                is ActiveSource.FromSchedule -> triggerHandler.handleEnd(source.scheduleId, source.endTime)
+                is ActiveSource.FromSchedule -> triggerHandler.endEarly(source.scheduleId)
                 ActiveSource.FromQuickSilence -> quickSilenceRepository.revertSilence()
             }
-            manualRefresh.value++
         }
     }
 

@@ -43,6 +43,18 @@
             android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <!-- Alarms are armed as absolute instants computed from the wall-clock
+                     schedule in the zone/time that was current when they were set, so
+                     a time zone or clock change leaves every one of them pointing at
+                     the wrong moment until they are re-armed. -->
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <!-- An app update stops the process; re-arm without waiting for the
+                     user to open the app again. -->
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <!-- Sent when the user grants "Alarms & reminders": re-arm so the
+                     pending alarms become exact straight away. -->
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
             </intent-filter>
         </receiver>
 

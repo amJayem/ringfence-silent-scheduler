@@ -104,4 +104,45 @@ class RecurringScheduleCalculatorTest {
         val occurrence = RecurringScheduleCalculator.nextOccurrence(weekdaySchedule, saturdayMorning)
         assertEquals(LocalDateTime.of(2026, 3, 9, 9, 30), occurrence.start)
     }
+
+    @Test
+    fun `a window the user ended early is skipped until its natural end`() {
+        val duringWindow = LocalDateTime.of(2026, 3, 2, 13, 20) // Monday, inside 1:15-1:35 PM
+        val endedEarlyUntil = LocalDateTime.of(2026, 3, 2, 13, 35)
+
+        val occurrence = RecurringScheduleCalculator.nextOccurrence(sameDaySchedule, duringWindow, endedEarlyUntil)
+
+        assertEquals(LocalDateTime.of(2026, 3, 3, 13, 15), occurrence.start)
+        assertEquals(false, occurrence.isActiveAt(duringWindow))
+    }
+
+    @Test
+    fun `an early end that has already passed no longer skips anything`() {
+        val nextDayDuringWindow = LocalDateTime.of(2026, 3, 3, 13, 20)
+        val yesterdaysEarlyEnd = LocalDateTime.of(2026, 3, 2, 13, 35)
+
+        val occurrence = RecurringScheduleCalculator.nextOccurrence(sameDaySchedule, nextDayDuringWindow, yesterdaysEarlyEnd)
+
+        assertEquals(LocalDateTime.of(2026, 3, 3, 13, 15), occurrence.start)
+        assertEquals(true, occurrence.isActiveAt(nextDayDuringWindow))
+    }
+
+    @Test
+    fun `no early end behaves exactly like the plain lookup`() {
+        val duringWindow = LocalDateTime.of(2026, 3, 2, 13, 20)
+
+        assertEquals(
+            RecurringScheduleCalculator.nextOccurrence(sameDaySchedule, duringWindow),
+            RecurringScheduleCalculator.nextOccurrence(sameDaySchedule, duringWindow, null)
+        )
+    }
+
+    @Test
+    fun `a window is active from its start up to but not including its end`() {
+        val occurrence = ScheduleOccurrence(LocalDateTime.of(2026, 3, 2, 13, 15), LocalDateTime.of(2026, 3, 2, 13, 35))
+
+        assertEquals(false, occurrence.isActiveAt(LocalDateTime.of(2026, 3, 2, 13, 14)))
+        assertEquals(true, occurrence.isActiveAt(LocalDateTime.of(2026, 3, 2, 13, 15)))
+        assertEquals(false, occurrence.isActiveAt(LocalDateTime.of(2026, 3, 2, 13, 35)))
+    }
 }

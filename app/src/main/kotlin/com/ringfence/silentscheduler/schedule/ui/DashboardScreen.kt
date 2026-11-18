@@ -1,5 +1,6 @@
 package com.ringfence.silentscheduler.schedule.ui
 
+import com.ringfence.silentscheduler.core.navigation.openSystemSettings
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
@@ -261,7 +262,7 @@ fun DashboardScreen(
                         val context = LocalContext.current
                         NotificationsDisabledBanner(
                             onOpenNotificationSettings = {
-                                context.startActivity(
+                                context.openSystemSettings(
                                     Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                                         .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
                                 )
@@ -274,7 +275,7 @@ fun DashboardScreen(
                         val context = LocalContext.current
                         ExactAlarmRevokedBanner(
                             onOpenExactAlarmSettings = {
-                                context.startActivity(
+                                context.openSystemSettings(
                                     Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
                                         .setData(Uri.parse("package:${context.packageName}"))
                                 )

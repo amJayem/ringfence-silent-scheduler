@@ -113,8 +113,14 @@ class SilenceNotifier @Inject constructor(
     }
 
     fun notifySilenceEnded(sessionKey: String, label: String, style: NotificationStyle, restoredModeName: String) {
+        // The "ended" confirmation uses its own id rather than replacing the active
+        // notification in place: [cancelActiveNotification] is also called by end
+        // paths that find the session already over (a duplicate end arriving moments
+        // after the real one), and with a shared id that late cancel wiped out the
+        // confirmation the real end had just posted.
+        notificationManager.cancel(sessionKey.hashCode())
         post(
-            id = sessionKey.hashCode(),
+            id = endedNotificationId(sessionKey),
             style = style,
             title = context.getString(R.string.notification_silence_ended_title, label),
             shortText = "",
@@ -126,6 +132,8 @@ class SilenceNotifier @Inject constructor(
             timeoutAfterMillis = ENDED_NOTIFICATION_TIMEOUT_MILLIS
         )
     }
+
+    private fun endedNotificationId(sessionKey: String) = (sessionKey + ENDED_ID_SUFFIX).hashCode()
 
     private fun post(
         id: Int,
@@ -233,5 +241,6 @@ class SilenceNotifier @Inject constructor(
         const val CHANNEL_BANNER = "silence_banner_v2"
         const val CHANNEL_SILENT_LOG = "silence_silent_log"
         const val ENDED_NOTIFICATION_TIMEOUT_MILLIS = 3_000L
+        const val ENDED_ID_SUFFIX = "#ended"
     }
 }
